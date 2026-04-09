@@ -15,7 +15,10 @@ This document distills **portable** conventions from the AutonomAtIon governance
 | [`.gitattributes`](../.gitattributes) | Consistent `eol=lf` for source and docs across OSes. |
 | [`icad-addin/Directory.Build.props`](../icad-addin/Directory.Build.props) | Shared `TargetFramework`, nullable, implicit usings, deterministic build for **all** projects under `icad-addin/`. |
 | [`orchestrator/pyproject.toml`](../orchestrator/pyproject.toml) | Python `requires-python`, optional **ruff** in `[dev]`; `[tool.ruff]` runs **E/F/I/W** with **E501** ignored so existing long lines do not churn (wrap new code near 100 columns when practical). |
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | Parity: gitleaks, `pytest`, `ruff check`, `dotnet build`. |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | Parity: gitleaks, `ruff check`, `pytest`, `dotnet build`; **workflow_dispatch**; NuGet cache on the .NET job. |
+| [`.vscode/`](../.vscode/) | Recommended extensions (Python, C#, EditorConfig), tasks (ruff, pytest, dotnet build), settings aligned with `.editorconfig`. |
+| [`InGENeer.code-workspace`](../InGENeer.code-workspace) | Multi-root workspace for orchestrator, `icad-addin`, schemas, docs, AutonomAtIon, scripts — limits IDE scope (see `~/Dev/DEV_OPS_RUNBOOK.md` when using a parent monorepo). |
+| [`AGENTS.md`](../AGENTS.md) | Single entrypoint for coding agents; links governance and worktrees. |
 
 ---
 
