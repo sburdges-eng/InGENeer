@@ -39,6 +39,7 @@ jobs:
           cache: pip
           cache-dependency-path: orchestrator/pyproject.toml
       - run: pip install -e ".[dev]"
+      - run: ruff check src tests
       - run: python -m pytest -q
 
   dotnet:

@@ -8,7 +8,7 @@ Checklist after creating the GitHub (or GitLab) remote—do once per hosting pro
 2. Confirm **default branch** is `main` (or align CI branch filters in `.github/workflows/ci.yml`).
 3. Enable **branch protection** on the default branch:
    - Require pull request before merging
-   - Require status checks: **CI** jobs (`python`, `dotnet`, `gitleaks` as applicable)
+   - Require status checks: **CI** jobs (`python` includes **ruff** + **pytest**, `dotnet`, `gitleaks` as applicable)
    - Optional: require linear history, disallow force-push
 
 ## Security features (GitHub)

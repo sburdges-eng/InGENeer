@@ -1,7 +1,5 @@
-using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
-using System.Threading;
 
 namespace InGENeer.IcadBridge;
 
@@ -14,7 +12,6 @@ public static class IntentRouter
     private static readonly Assembly s_asm = typeof(IntentRouter).Assembly;
     private static readonly string s_hostAssembly = s_asm.GetName().Name ?? "InGENeer.IcadBridge";
     private static readonly string s_hostVersion = s_asm.GetName().Version?.ToString() ?? "0.0.0";
-    private static int s_mutationSeq;
 
     public static BridgeExecutionResult Execute(CadIntentEnvelope intent, ModelFingerprintStore fingerprints)
     {
@@ -26,9 +23,21 @@ public static class IntentRouter
             return BridgeExecutionResult.Fail(intent, "mock failure (_bridge_execute_fail)");
         }
 
+        var live = fingerprints.Snapshot();
+        if (!string.IsNullOrWhiteSpace(intent.ModelFingerprintExpected)
+            && !string.Equals(
+                intent.ModelFingerprintExpected.Trim(),
+                live,
+                StringComparison.Ordinal))
+        {
+            return BridgeExecutionResult.Fail(
+                intent,
+                "modelFingerprintExpected does not match live model fingerprint (stale document)");
+        }
+
+        var fpBefore = live;
         var mode = string.IsNullOrWhiteSpace(intent.ExecutionMode) ? "execute" : intent.ExecutionMode.Trim();
-        var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "CreatePointBlock", StringComparison.Ordinal);
+        var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal);
 
         if (isHighRisk
             && string.Equals(mode, "execute", StringComparison.OrdinalIgnoreCase)
@@ -37,7 +46,6 @@ public static class IntentRouter
             return BridgeExecutionResult.Fail(intent, $"{intent.Command} in execute mode requires humanConfirmationToken");
         }
 
-        var fpBefore = fingerprints.Current;
         void AddModeTelemetry(Dictionary<string, object?> t)
         {
             t["executionMode"] = mode;
@@ -48,8 +56,8 @@ public static class IntentRouter
             }
             else
             {
-                fingerprints.Bump("m" + Interlocked.Increment(ref s_mutationSeq).ToString(CultureInfo.InvariantCulture));
-                t["modelFingerprintAfter"] = fingerprints.Current;
+                fingerprints.CommitAfterSuccessfulExecute(intent.IntentId, intent.Command);
+                t["modelFingerprintAfter"] = fingerprints.Snapshot();
                 t["plannedSummary"] = "";
             }
         }
@@ -66,10 +74,9 @@ public static class IntentRouter
             "GetModelFingerprint" => BridgeExecutionResult.Ok(intent, $"GetModelFingerprint:{mode}", t =>
             {
                 AddModeTelemetry(t);
-                t["modelFingerprint"] = fingerprints.Current;
+                t["modelFingerprint"] = fingerprints.Snapshot();
             }),
             "HighRiskStub" => BridgeExecutionResult.Ok(intent, $"HighRiskStub:{mode}", AddModeTelemetry),
-            "CreatePointBlock" => BridgeExecutionResult.Ok(intent, $"CreatePointBlock:{mode}", AddModeTelemetry),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };
     }

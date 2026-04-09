@@ -6,6 +6,10 @@
 - **.NET SDK** 10.x (for `icad-addin/`).
 - **Git**
 
+## Agent / IDE integration
+
+**MCP is not implemented** in this repo; the supported entrypoint is the **`ingenieer-run` CLI** (see below). For an HTTP round-trip against the C# loopback host without iCAD, use `bridge.mode: http` as in [`icad-addin/README.md`](../icad-addin/README.md).
+
 ## Python orchestrator
 
 ```bash
@@ -13,6 +17,7 @@ cd orchestrator
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+ruff check src tests
 python -m pytest -q
 ingenieer-run --help
 ```
@@ -42,4 +47,4 @@ Use the output bundle when working in a **separate** Cursor window or repo for C
 
 ## CI parity
 
-GitHub Actions runs **gitleaks**, **pytest** (Python 3.11), and **dotnet build** on push/PR to `main`. See [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+GitHub Actions runs **gitleaks**, **ruff check**, **pytest** (Python 3.11), and **dotnet build** on push/PR to `main`. See [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).

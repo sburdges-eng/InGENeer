@@ -96,8 +96,8 @@ Phases live in `orchestrator/src/ingenieer/orchestrator.py`.
 - **Allowed:** Phase logic, stubs that return structured `PhaseResult`, config-driven limits (e.g. verification retries).
 - **Forbidden:** CAD API calls; B-rep or coordinate solving; swallowing exceptions without audit/logging (preserve pipeline behavior).
 - **Inputs / outputs:** `CadIntentEnvelope` → `PipelineResult` / `OrchestratorContext`.
-- **Safe change workflow:** Cmd+K for surgical phase edits; run `pytest`.
-- **Definition of done:** `pytest -q` clean; phases emit audit events via runner; no new non-deterministic side effects in core path.
+- **Safe change workflow:** Cmd+K for surgical phase edits; run `ruff check src tests` and `pytest`.
+- **Definition of done:** `ruff check src tests` and `pytest -q` clean (from `orchestrator/`); phases emit audit events via runner; no new non-deterministic side effects in core path.
 - **Cross-links:** Architecture rules §1, §5; SOP 4–6.
 
 ---

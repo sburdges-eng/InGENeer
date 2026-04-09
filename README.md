@@ -5,6 +5,7 @@
 ## Governance and local dev
 
 - **[docs/DEV_SETUP.md](docs/DEV_SETUP.md)** — Python venv, `pytest`, `dotnet build`.
+- **[docs/WORKSPACE_STANDARDS.md](docs/WORKSPACE_STANDARDS.md)** — shared EditorConfig, Git attributes, .NET `Directory.Build.props`, Python ruff, and how to reuse standards in new repos.
 - **[docs/REPOSITORY_SETUP.md](docs/REPOSITORY_SETUP.md)** — remote, branch protection, Dependabot, security toggles after you add a host.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — PR expectations and architecture links.
 - **[SECURITY.md](SECURITY.md)** — how to report issues.

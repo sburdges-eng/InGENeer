@@ -1,0 +1,10 @@
+<Project>
+  <!-- Shared defaults for every project under icad-addin/ (new libraries, hosts, future add-in). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>

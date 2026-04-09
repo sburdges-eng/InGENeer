@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 from ingenieer.audit import AuditLogger
 from ingenieer.bridge_client import BridgeClient, create_bridge_client
+from ingenieer.icad_bridge_transport import run_dispatch_execute, run_sync_baseline
 from ingenieer.intent_validation import collect_intent_validation_errors
 from ingenieer.models import (
     CadIntentEnvelope,
@@ -21,7 +22,6 @@ from ingenieer.models import (
     PhaseResult,
     PipelineResult,
 )
-
 
 PHASE_ORDER = ("validate_intent", "sync_baseline", "dispatch_execute", "verify_result")
 
@@ -63,7 +63,7 @@ class _ValidateIntentPhase:
 
 
 class _SyncBaselinePhase:
-    """Compare orchestrator model fingerprint with live CAD session (via bridge)."""
+    """GET /v1/model-fingerprint + stale guard (see icad_bridge_transport)."""
 
     def __init__(self, bridge: BridgeClient) -> None:
         self._bridge = bridge
@@ -73,36 +73,14 @@ class _SyncBaselinePhase:
         return True, []
 
     def run(self, ctx: OrchestratorContext) -> PhaseResult:
-        try:
-            observed = self._bridge.get_model_fingerprint()
-        except Exception as exc:  # noqa: BLE001 — surface as phase failure
-            return PhaseResult(
-                phase=self.name,
-                success=False,
-                message=f"Baseline sync failed: {exc}",
-                data={},
-            )
-        ctx.model_fingerprint_observed = observed
-        if ctx.intent and ctx.intent.modelFingerprintExpected:
-            if observed != ctx.intent.modelFingerprintExpected:
-                return PhaseResult(
-                    phase=self.name,
-                    success=False,
-                    message="Model fingerprint mismatch (stale document)",
-                    data={
-                        "expected": ctx.intent.modelFingerprintExpected,
-                        "observed": observed,
-                    },
-                )
-        return PhaseResult(
-            phase=self.name,
-            success=True,
-            message="Baseline sync OK",
-            data={"modelFingerprintObserved": observed},
-        )
+        pr = run_sync_baseline(self._bridge, ctx)
+        pr.phase = self.name
+        return pr
 
 
 class _DispatchExecutePhase:
+    """POST /v1/execute (see icad_bridge_transport)."""
+
     def __init__(self, bridge: BridgeClient) -> None:
         self._bridge = bridge
         self.name = "dispatch_execute"
@@ -113,35 +91,9 @@ class _DispatchExecutePhase:
         return True, []
 
     def run(self, ctx: OrchestratorContext) -> PhaseResult:
-        assert ctx.intent is not None
-        try:
-            br = self._bridge.execute_intent(ctx.intent)
-        except Exception as exc:  # noqa: BLE001
-            return PhaseResult(
-                phase=self.name,
-                success=False,
-                message=f"Dispatch exception: {exc}",
-                data={},
-            )
-        payload = br.model_dump(mode="json")
-        ctx.bridge_execution = payload
-        ack: dict[str, Any] = {
-            "status": "executed" if br.success else "failed",
-            "command": ctx.intent.command,
-        }
-        if not br.success:
-            return PhaseResult(
-                phase=self.name,
-                success=False,
-                message=br.error_traceback or "bridge reported execution failure",
-                data={"dispatch_ack": ack, "bridge_execution": payload},
-            )
-        return PhaseResult(
-            phase=self.name,
-            success=True,
-            message="Dispatch completed",
-            data={"dispatch_ack": ack, "bridge_execution": payload},
-        )
+        pr = run_dispatch_execute(self._bridge, ctx)
+        pr.phase = self.name
+        return pr
 
 
 class _VerifyResultPhase:

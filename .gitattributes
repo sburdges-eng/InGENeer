@@ -1,0 +1,12 @@
+# Normalize line endings for all AutonomAtIon / InGENeer text artifacts.
+* text=auto eol=lf
+
+*.py  text eol=lf diff=python
+*.cs  text eol=lf diff=csharp
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.json text eol=lf
+*.md  text eol=lf
+*.sh  text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

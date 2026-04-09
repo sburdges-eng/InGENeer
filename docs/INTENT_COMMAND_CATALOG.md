@@ -34,34 +34,32 @@ Use `dry_run` / `preview` to plan without an approval token.
 | Phase (orchestrator) | Responsibility |
 |----------------------|----------------|
 | `validate_intent` | Pydantic / JSON Schema on envelope; allowlist; high-risk confirmation rule |
-| `sync_baseline` | Document fingerprint vs `modelFingerprintExpected` (stale guard) |
-| `dispatch_execute` | Send intent to add-in; native `Transaction` + rollback on failure |
+| `sync_baseline` | `GET /v1/model-fingerprint` vs `modelFingerprintExpected` (stale guard) |
+| `dispatch_execute` | `POST /v1/execute` — native `Transaction` + rollback on failure in real host |
 | `verify_result` | Independent check: live `GET /v1/model-fingerprint` must match `telemetry.modelFingerprintAfter` from dispatch; bounded retries **only** on transient transport failures |
 
 ---
 
-## Commands (MVP placeholders)
+## Commands implemented by the bridge HTTP API
 
-Implementations are **stubs** until iCAD add-in commands exist. Names are stable for schema and tests.
+These intents are accepted by **`POST /v1/execute`** on the loopback host (`InGENeer.Bridge.LoopbackHost`) and routed in `icad-addin/InGENeer.IcadBridge/IntentRouter.cs`. They exercise transport, fingerprinting, and risk rules; they **do not** call proprietary Carlson/ITC drawing APIs.
 
 | Command | Risk | Parameters (example) | Notes |
 |---------|------|----------------------|-------|
 | `NoOp` | low | `{}` | Connectivity / queue smoke test |
-| `PingHost` | low | `{}` | Returns host id + build (from add-in) |
-| `GetModelFingerprint` | low | `{}` | Returns hash / save counter for stale detection |
+| `PingHost` | low | `{}` | Returns host id + build (from add-in assembly) |
+| `GetModelFingerprint` | low | `{}` | Echoes current `modelFingerprint` from the host store |
 | `HighRiskStub` | high | `{}` | **Test-only** command to exercise human-confirmation validation |
-| `CreatePointBlock` | high | `{"point": [x, y, z], "layer": "name", "label": "string", "attributes": {"key": "value"}}` | Create civil CAD point block (survey marker) |
+
+The loopback host publishes **opaque SHA-256 hex** fingerprints from `ModelFingerprintStore` (revision-based). A real add-in should replace the store internals with values from **documented** host APIs while keeping the same HTTP contract.
 
 ---
 
-## Future (civil / survey — align to Carlson workflows)
+## Proprietary CAD API–backed commands
 
-Add rows here only after **official API** snippets exist (AutonomAtIon rule 4). Examples of *candidate* names (not implemented):
+**None in this repository yet.** Add rows here only after **official API** snippets exist (AutonomAtIon rule 4), and extend `ALLOWED_COMMANDS` / `IntentRouter` / this table together.
 
-- `DrawPolylineFromCoordinates` — WCS points, layer, color  
-- `ImportLandXmlSurface` — relative path key under `paths` in outer contract, not inside envelope unless explicitly designed  
-
-**Rule:** extend `parameters` per command with small JSON objects; document each in this file. Assign **risk** when adding commands (default new civil mutations to `high` until reviewed).
+**Rule:** extend `parameters` per command with small JSON objects; document each in this file. Default new civil mutations to `high` until reviewed.
 
 ---
 
