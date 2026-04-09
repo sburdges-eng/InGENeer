@@ -122,6 +122,31 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
 
 **Design note:** Batch by design. Survey point import is a bulk operation; one intent = one transaction = one fingerprint verification, avoiding N round-trips.
 
+### ImportLandXmlSurface
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host imports a LandXML surface file into the document on the specified layer. |
+
+**Parameters:**
+
+```json
+{
+  "landxml_path_key": "surface_file",
+  "surface_name": "Existing Ground",
+  "layer": "TOPO_SURFACE"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `landxml_path_key` | `string` | yes | Key into the outer contract's `paths` dictionary. The orchestrator resolves the actual file path; the intent envelope never contains absolute paths (air-gapped security model). |
+| `surface_name` | `string` | yes | Name for the imported surface within the CAD document. |
+| `layer` | `string` | yes | Target CAD layer for the surface. |
+
+**Design note:** External files are referenced by key, not by path. The `landxml_path_key` maps to an entry in the `paths` bucket of the outer contract payload (`contracts.py`), maintaining the air-gapped security model where the intent envelope never carries absolute filesystem paths.
+
 ---
 
 ## Proprietary CAD API–backed commands

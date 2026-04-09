@@ -190,6 +190,61 @@ def test_create_point_blocks_execute_with_token_passes():
     assert errs == []
 
 
+def test_import_landxml_surface_accepted_dry_run():
+    intent = CadIntentEnvelope(
+        intentId="lxml-1",
+        command="ImportLandXmlSurface",
+        parameters={
+            "landxml_path_key": "surface_file",
+            "surface_name": "Existing Ground",
+            "layer": "TOPO_SURFACE",
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_import_landxml_surface_execute_requires_token():
+    intent = CadIntentEnvelope(
+        intentId="lxml-2",
+        command="ImportLandXmlSurface",
+        parameters={
+            "landxml_path_key": "surface_file",
+            "surface_name": "Existing Ground",
+            "layer": "TOPO_SURFACE",
+        },
+        executionMode="execute",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert any("humanConfirmationToken" in e for e in errs)
+
+
+def test_import_landxml_surface_execute_with_token_passes():
+    intent = CadIntentEnvelope(
+        intentId="lxml-3",
+        command="ImportLandXmlSurface",
+        parameters={
+            "landxml_path_key": "surface_file",
+            "surface_name": "Proposed Grade",
+            "layer": "DESIGN_SURFACE",
+        },
+        executionMode="execute",
+        humanConfirmationToken="operator-approved-lxml",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
 @pytest.mark.skipif(
     not Path(__file__).resolve().parents[2].joinpath("schemas", "cad_intent_envelope.schema.json").is_file(),
     reason="schema file not at expected repo layout",

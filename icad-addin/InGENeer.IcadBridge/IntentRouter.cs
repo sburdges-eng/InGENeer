@@ -39,7 +39,8 @@ public static class IntentRouter
         var mode = string.IsNullOrWhiteSpace(intent.ExecutionMode) ? "execute" : intent.ExecutionMode.Trim();
         var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal)
                          || string.Equals(intent.Command, "DrawPolylineFromCoordinates", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "CreatePointBlocks", StringComparison.Ordinal);
+                         || string.Equals(intent.Command, "CreatePointBlocks", StringComparison.Ordinal)
+                         || string.Equals(intent.Command, "ImportLandXmlSurface", StringComparison.Ordinal);
 
         if (isHighRisk
             && string.Equals(mode, "execute", StringComparison.OrdinalIgnoreCase)
@@ -81,6 +82,7 @@ public static class IntentRouter
             "HighRiskStub" => BridgeExecutionResult.Ok(intent, $"HighRiskStub:{mode}", AddModeTelemetry),
             "DrawPolylineFromCoordinates" => BridgeExecutionResult.Ok(intent, $"DrawPolylineFromCoordinates:{mode}", AddModeTelemetry),
             "CreatePointBlocks" => BridgeExecutionResult.Ok(intent, $"CreatePointBlocks:{mode}", AddModeTelemetry),
+            "ImportLandXmlSurface" => BridgeExecutionResult.Ok(intent, $"ImportLandXmlSurface:{mode}", AddModeTelemetry),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };
     }

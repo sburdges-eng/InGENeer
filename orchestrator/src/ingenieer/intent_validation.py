@@ -20,6 +20,7 @@ ALLOWED_COMMANDS: frozenset[str] = frozenset(
         "HighRiskStub",
         "DrawPolylineFromCoordinates",
         "CreatePointBlocks",
+        "ImportLandXmlSurface",
     },
 )
 
@@ -31,6 +32,7 @@ COMMAND_RISK: dict[str, str] = {
     "HighRiskStub": "high",
     "DrawPolylineFromCoordinates": "high",
     "CreatePointBlocks": "high",
+    "ImportLandXmlSurface": "high",
 }
 
 
