@@ -4,7 +4,10 @@
 
 ## Governance and local dev
 
+- **[AGENTS.md](AGENTS.md)** — entrypoint for AI coding agents (read this first). Shorter pointers: [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md).
+- **[InGENeer.code-workspace](InGENeer.code-workspace)** — open in Cursor/VS Code for a scoped multi-root workspace (orchestrator + `icad-addin` + schemas + docs).
 - **[docs/DEV_SETUP.md](docs/DEV_SETUP.md)** — Python venv, `pytest`, `dotnet build`.
+- **[docs/PARENT_DEV_MONOREPO.md](docs/PARENT_DEV_MONOREPO.md)** — if this repo lives under `~/Dev/` next to sibling projects.
 - **[docs/WORKSPACE_STANDARDS.md](docs/WORKSPACE_STANDARDS.md)** — shared EditorConfig, Git attributes, .NET `Directory.Build.props`, Python ruff, and how to reuse standards in new repos.
 - **[docs/REPOSITORY_SETUP.md](docs/REPOSITORY_SETUP.md)** — remote, branch protection, Dependabot, security toggles after you add a host.
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — PR expectations and architecture links.

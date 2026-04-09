@@ -2,7 +2,7 @@
 
 ## Before you change code
 
-1. Read **[AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md)** and **[AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md)**.
+1. Read **[AGENTS.md](AGENTS.md)** (agent entrypoint) and **[AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md)** / **[AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md)**.
 2. Follow **[docs/MODEL_LANGUAGE_ROUTING.md](docs/MODEL_LANGUAGE_ROUTING.md)** for Python vs C# vs schema work (air-gap orchestrator and host execution contexts when appropriate).
 3. Skim **[docs/WORKSPACE_STANDARDS.md](docs/WORKSPACE_STANDARDS.md)** for repo-wide EditorConfig, Git attributes, shared .NET defaults, and how process rules map to tooling.
 
