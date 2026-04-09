@@ -16,4 +16,10 @@ public sealed class ModelFingerprintStore
     public string Current => _value;
 
     public void Set(string value) => _value = value;
+
+    /// <summary>Simulate a committed document change (execute path only).</summary>
+    public void Bump(string suffix)
+    {
+        _value = $"{_value}#{suffix}";
+    }
 }

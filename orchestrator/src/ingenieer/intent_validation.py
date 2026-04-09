@@ -12,7 +12,22 @@ from jsonschema import ValidationError
 from ingenieer.models import CadIntentEnvelope, IntentValidationConfig
 
 # MVP catalog — keep in sync with docs/INTENT_COMMAND_CATALOG.md
-ALLOWED_COMMANDS: frozenset[str] = frozenset({"NoOp", "PingHost", "GetModelFingerprint"})
+ALLOWED_COMMANDS: frozenset[str] = frozenset(
+    {"NoOp", "PingHost", "GetModelFingerprint", "HighRiskStub", "CreatePointBlock"},
+)
+
+# Risk tier for human-confirmation rules (execute + high requires humanConfirmationToken).
+COMMAND_RISK: dict[str, str] = {
+    "NoOp": "low",
+    "PingHost": "low",
+    "GetModelFingerprint": "low",
+    "HighRiskStub": "high",
+    "CreatePointBlock": "high",
+}
+
+
+def command_risk(command: str) -> str:
+    return COMMAND_RISK.get(command, "low")
 
 
 def default_intent_schema_path() -> Path:
@@ -45,4 +60,13 @@ def collect_intent_validation_errors(
                 jsonschema.validate(instance, schema)
             except ValidationError as exc:
                 errors.append(exc.message)
+
+    if intent.executionMode == "execute" and command_risk(intent.command) == "high":
+        token = (intent.humanConfirmationToken or "").strip()
+        if not token:
+            errors.append(
+                "high-risk command in execute mode requires non-empty humanConfirmationToken "
+                "(use dry_run or preview to plan without confirmation)"
+            )
+
     return errors

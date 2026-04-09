@@ -7,7 +7,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-INTENT_SCHEMA_VERSION = "1.0.0"
+INTENT_SCHEMA_VERSION = "1.1.0"
+
+ExecutionMode = Literal["dry_run", "preview", "execute"]
 
 
 class ProjectConfig(BaseModel):
@@ -27,6 +29,9 @@ class BridgeConfig(BaseModel):
     http_base_url: str = "http://127.0.0.1:8765"
     timeout_sec: float = Field(default=30.0, ge=1.0, le=120.0)
     mock_model_fingerprint: str = "stub-fingerprint"
+    # Retries only for transient transport errors (connection reset, 503, etc.) — not for 4xx or bridge logic failures.
+    http_max_retries: int = Field(default=2, ge=0, le=8)
+    http_retry_backoff_sec: float = Field(default=0.25, ge=0.05, le=10.0)
 
 
 class IntentValidationConfig(BaseModel):
@@ -44,6 +49,7 @@ class OrchestratorConfig(BaseModel):
     bridge: BridgeConfig = Field(default_factory=BridgeConfig)
     intent_validation: IntentValidationConfig = Field(default_factory=IntentValidationConfig)
     max_verification_attempts: int = Field(default=3, ge=1, le=10)
+    verification_backoff_sec: float = Field(default=0.3, ge=0.05, le=30.0)
 
 
 class CadIntentEnvelope(BaseModel):
@@ -59,6 +65,19 @@ class CadIntentEnvelope(BaseModel):
     intentId: str = Field(min_length=1)
     command: str = Field(min_length=1, description="Registered intent name; see INTENT_COMMAND_CATALOG.md")
     parameters: dict[str, Any] = Field(default_factory=dict)
+    executionMode: ExecutionMode = Field(
+        default="execute",
+        description="dry_run / preview: no committed mutation; execute: host may mutate (see catalog risk).",
+    )
+    humanConfirmationToken: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Required for high-risk commands when executionMode is execute (operator-issued).",
+    )
+    humanConfirmationId: str | None = Field(
+        default=None,
+        description="Optional correlation id linking confirmation to an external approval record.",
+    )
     targetDocumentRef: str | None = None
     modelFingerprintExpected: str | None = Field(
         default=None,

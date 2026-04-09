@@ -6,6 +6,7 @@ Bridge: `BridgeConfig.mode` `mock` (default) or `http` — see docs/BRIDGE_TRANS
 
 from __future__ import annotations
 
+import random
 import time
 from pathlib import Path
 from typing import Any, Protocol
@@ -144,7 +145,10 @@ class _DispatchExecutePhase:
 
 
 class _VerifyResultPhase:
-    name = "verify_result"
+    def __init__(self, bridge: BridgeClient, config: OrchestratorConfig) -> None:
+        self._bridge = bridge
+        self._config = config
+        self.name = "verify_result"
 
     def validate_inputs(self, ctx: OrchestratorContext) -> tuple[bool, list[str]]:
         return True, []
@@ -165,11 +169,53 @@ class _VerifyResultPhase:
                 message=be.get("error_traceback") or "verification failed (bridge success=false)",
                 data={"verification": {"status": "failed", "source": "bridge_execution"}},
             )
+        assert ctx.intent is not None
+        telemetry = be.get("telemetry")
+        if not isinstance(telemetry, dict):
+            telemetry = {}
+
+        max_attempts = self._config.max_verification_attempts
+        backoff = self._config.verification_backoff_sec
+        last_vr = None
+        for attempt in range(max_attempts):
+            vr = self._bridge.verify_post_dispatch(ctx.intent, telemetry)
+            last_vr = vr
+            if vr.success:
+                return PhaseResult(
+                    phase=self.name,
+                    success=True,
+                    message="Verification OK",
+                    data={
+                        "verification": {
+                            "status": "ok",
+                            "source": "host_fingerprint",
+                            "attempts": attempt + 1,
+                            "observed_fingerprint": vr.observed_fingerprint,
+                            "expected_fingerprint": vr.expected_fingerprint,
+                            "evidence": vr.evidence,
+                        }
+                    },
+                )
+            if not vr.transient_failure or attempt + 1 >= max_attempts:
+                break
+            sleep_for = backoff * (2**attempt) + random.uniform(0, backoff * 0.5)
+            time.sleep(sleep_for)
+
+        assert last_vr is not None
         return PhaseResult(
             phase=self.name,
-            success=True,
-            message="Verification OK",
-            data={"verification": {"status": "ok", "source": "bridge_execution"}},
+            success=False,
+            message=last_vr.message,
+            data={
+                "verification": {
+                    "status": "failed",
+                    "source": "host_fingerprint",
+                    "transient_failure": last_vr.transient_failure,
+                    "observed_fingerprint": last_vr.observed_fingerprint,
+                    "expected_fingerprint": last_vr.expected_fingerprint,
+                    "evidence": last_vr.evidence,
+                }
+            },
         )
 
 
@@ -193,7 +239,7 @@ class PipelineOrchestrator:
             "validate_intent": _ValidateIntentPhase(cfg),
             "sync_baseline": _SyncBaselinePhase(resolved_bridge),
             "dispatch_execute": _DispatchExecutePhase(resolved_bridge),
-            "verify_result": _VerifyResultPhase(),
+            "verify_result": _VerifyResultPhase(resolved_bridge, cfg),
         }
 
     def run(self, intent: CadIntentEnvelope, *, phase: str = "all") -> PipelineResult:

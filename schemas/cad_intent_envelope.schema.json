@@ -5,11 +5,11 @@
   "description": "Validated CAD execution intent from the orchestrator to the iCAD bridge (InGENeer / AutonomAtIon).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "intentId", "command", "parameters"],
+  "required": ["schemaVersion", "intentId", "command", "parameters", "executionMode"],
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "intentId": {
       "type": "string",
@@ -21,6 +21,16 @@
     },
     "parameters": {
       "type": "object"
+    },
+    "executionMode": {
+      "type": "string",
+      "enum": ["dry_run", "preview", "execute"]
+    },
+    "humanConfirmationToken": {
+      "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+    },
+    "humanConfirmationId": {
+      "type": ["string", "null"]
     },
     "targetDocumentRef": {
       "type": ["string", "null"]

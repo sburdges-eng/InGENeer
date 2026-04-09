@@ -6,7 +6,7 @@
 
 | Project | Role |
 |---------|------|
-| **InGENeer.IcadBridge** | `CadIntentEnvelope`, `BridgeExecutionResult`, `IntentRouter` (`NoOp`, `PingHost`, `GetModelFingerprint`), `ModelFingerprintStore`. |
+| **InGENeer.IcadBridge** | `CadIntentEnvelope`, `BridgeExecutionResult`, `IntentRouter` (`NoOp`, `PingHost`, `GetModelFingerprint`, `HighRiskStub`), `ModelFingerprintStore`. |
 | **InGENeer.Bridge.LoopbackHost** | Dev-only **HTTP** listener (`GET /v1/model-fingerprint`, `POST /v1/execute`) so the Python orchestrator can use `bridge.mode: http` without iCAD. |
 
 ## Build
@@ -30,7 +30,7 @@ From another shell (venv + editable `ingenieer`):
 
 ```bash
 cd orchestrator
-printf '%s' '{"schemaVersion":"1.0.0","intentId":"t1","command":"NoOp","parameters":{}}' > /tmp/intent.json
+printf '%s' '{"schemaVersion":"1.1.0","intentId":"t1","command":"NoOp","parameters":{},"executionMode":"execute"}' > /tmp/intent.json
 printf '%s' '{"bridge":{"mode":"http","http_base_url":"http://127.0.0.1:8765","timeout_sec":10}}' > /tmp/orch.json
 .venv/bin/ingenieer-run /tmp/intent.json --config /tmp/orch.json
 ```

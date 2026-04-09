@@ -25,6 +25,8 @@ main
 
 ## Agent lanes (naming)
 
+Model × language rules: [MODEL_LANGUAGE_ROUTING.md](../MODEL_LANGUAGE_ROUTING.md).
+
 | Lane | Typical surface |
 |------|-----------------|
 | `cloud-agent` | Cloud / IDE agent automation |

@@ -12,7 +12,7 @@
 
 | Artifact | Field / constant | Current | Bump when |
 |----------|------------------|---------|-----------|
-| Intent envelope | `schemaVersion` in JSON + `CadIntentEnvelope` | `1.0.0` | Breaking change to envelope fields |
+| Intent envelope | `schemaVersion` in JSON + `CadIntentEnvelope` | `1.1.0` | Breaking change to envelope fields |
 | Wire / contract payloads | `ingenieer.contracts.SCHEMA_VERSION` | `1.0.0` | Breaking change to outer contract shape |
 
 See also [docs/INTENT_COMMAND_CATALOG.md](../docs/INTENT_COMMAND_CATALOG.md) versioning section.
@@ -59,7 +59,7 @@ Phases live in `orchestrator/src/ingenieer/orchestrator.py`.
 | `validate_intent` | L1, L2 | Pydantic + schema; catalog-aligned `command`; no geometry |
 | `sync_baseline` | L2, L5/L6 when real | Fingerprint from host; fail closed if `modelFingerprintExpected` mismatches |
 | `dispatch_execute` | L5, L6 | Serialize envelope; host queues work on UI thread; transactional mutation + rollback |
-| `verify_result` | L6, L3, L2 | Structured bridge result; respect `max_verification_attempts` on `OrchestratorConfig` |
+| `verify_result` | L6, L3, L2 | Live fingerprint vs `telemetry.modelFingerprintAfter`; `max_verification_attempts` + `verification_backoff_sec` **only** for transient transport failures on the verify read |
 
 ---
 

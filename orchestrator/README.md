@@ -36,4 +36,10 @@ pytest -q
 ingenieer-run path/to/intent.json --output-dir ./out --audit-dir ./audit_logs
 ```
 
-Use `--config orchestrator.json` for `OrchestratorConfig` overrides (e.g. `bridge.mode`, `http_base_url`).
+Use `--config orchestrator.json` for `OrchestratorConfig` overrides (e.g. `bridge.mode`, `http_base_url`, `http_max_retries`, `max_verification_attempts`).
+
+Other flags:
+
+- `--dry-run` / `--preview` — force `executionMode` before validation.
+- `--i-confirm TOKEN` — set `humanConfirmationToken` for high-risk `execute` intents.
+- `--print-plan` — run through `validate_intent` only, print normalized intent + schema path (no dispatch).

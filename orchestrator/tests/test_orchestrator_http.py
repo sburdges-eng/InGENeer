@@ -34,12 +34,24 @@ class _BridgeHandler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
         intent = json.loads(raw.decode())
         cmd = intent.get("command", "")
+        mode = intent.get("executionMode", "execute")
+        fp = self.__class__.fingerprint
+        if mode in ("dry_run", "preview"):
+            after = fp
+        else:
+            self.__class__.fingerprint = f"{fp}:m"
+            after = self.__class__.fingerprint
         result = {
             "schemaVersion": "1.0.0",
             "success": True,
             "stdout": f"http:{cmd}",
             "error_traceback": None,
-            "telemetry": {"intentId": intent.get("intentId"), "command": cmd},
+            "telemetry": {
+                "intentId": intent.get("intentId"),
+                "command": cmd,
+                "executionMode": mode,
+                "modelFingerprintAfter": after,
+            },
         }
         body = json.dumps(result).encode()
         self.send_response(200)
@@ -50,6 +62,7 @@ class _BridgeHandler(BaseHTTPRequestHandler):
 
 
 def test_pipeline_http_mode_roundtrip(tmp_path):
+    _BridgeHandler.fingerprint = "http-test-fp"
     server = ThreadingHTTPServer(("127.0.0.1", 0), _BridgeHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

@@ -9,6 +9,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from ingenieer.contracts import SCHEMA_VERSION, build_contract_payload
 
 
+class BridgeVerifyResult(BaseModel):
+    """Evidence from an independent post-dispatch check (e.g. live fingerprint vs telemetry)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    success: bool
+    transient_failure: bool = False
+    message: str = ""
+    observed_fingerprint: str | None = None
+    expected_fingerprint: str | None = None
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
 class BridgeExecutionResult(BaseModel):
     """Result from the in-process CAD add-in / bridge after executing an intent."""
 

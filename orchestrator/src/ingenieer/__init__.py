@@ -9,7 +9,12 @@ from ingenieer.contracts import (
     canonical_json,
     validate_contract_payload,
 )
-from ingenieer.intent_validation import ALLOWED_COMMANDS
+from ingenieer.intent_validation import (
+    ALLOWED_COMMANDS,
+    COMMAND_RISK,
+    command_risk,
+    default_intent_schema_path,
+)
 from ingenieer.models import (
     BridgeConfig,
     CadIntentEnvelope,
@@ -19,16 +24,20 @@ from ingenieer.models import (
     PipelineResult,
 )
 from ingenieer.orchestrator import PipelineOrchestrator
-from ingenieer.wire import BridgeExecutionResult
+from ingenieer.wire import BridgeExecutionResult, BridgeVerifyResult
 
 __all__ = [
     "ALLOWED_COMMANDS",
+    "COMMAND_RISK",
     "AuditLogger",
     "BASE_INVARIANTS",
     "SCHEMA_VERSION",
     "BridgeConfig",
     "BridgeExecutionResult",
+    "BridgeVerifyResult",
     "CadIntentEnvelope",
+    "command_risk",
+    "default_intent_schema_path",
     "IntentValidationConfig",
     "OrchestratorConfig",
     "PhaseResult",

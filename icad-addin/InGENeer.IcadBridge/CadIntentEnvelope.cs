@@ -10,7 +10,7 @@ namespace InGENeer.IcadBridge;
 public sealed class CadIntentEnvelope
 {
     [JsonPropertyName("schemaVersion")]
-    public string SchemaVersion { get; set; } = "1.0.0";
+    public string SchemaVersion { get; set; } = "1.1.0";
 
     [JsonPropertyName("intentId")]
     public string IntentId { get; set; } = "";
@@ -20,6 +20,15 @@ public sealed class CadIntentEnvelope
 
     [JsonPropertyName("parameters")]
     public JsonElement Parameters { get; set; }
+
+    [JsonPropertyName("executionMode")]
+    public string ExecutionMode { get; set; } = "execute";
+
+    [JsonPropertyName("humanConfirmationToken")]
+    public string? HumanConfirmationToken { get; set; }
+
+    [JsonPropertyName("humanConfirmationId")]
+    public string? HumanConfirmationId { get; set; }
 
     [JsonPropertyName("targetDocumentRef")]
     public string? TargetDocumentRef { get; set; }
