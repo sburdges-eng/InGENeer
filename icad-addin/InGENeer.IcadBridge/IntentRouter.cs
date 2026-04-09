@@ -1,28 +1,38 @@
-using System.Reflection;
-using System.Text.Json;
-
 namespace InGENeer.IcadBridge;
 
 /// <summary>
-/// MVP command dispatch for catalog commands. No Carlson/ITC API calls here—only wire semantics.
-/// TODO: Inside iCAD, run <see cref="Execute"/> on the main UI thread and wrap document mutations in host transactions.
+/// Orchestration layer: fingerprint pre-checks, risk/confirmation gates, mode parsing.
+/// Delegates command execution to an <see cref="ICadHostExecutor"/>.
 /// </summary>
 public static class IntentRouter
 {
-    private static readonly Assembly s_asm = typeof(IntentRouter).Assembly;
-    private static readonly string s_hostAssembly = s_asm.GetName().Name ?? "InGENeer.IcadBridge";
-    private static readonly string s_hostVersion = s_asm.GetName().Version?.ToString() ?? "0.0.0";
-
-    public static BridgeExecutionResult Execute(CadIntentEnvelope intent, ModelFingerprintStore fingerprints)
+    private static readonly HashSet<string> s_highRiskCommands = new(StringComparer.Ordinal)
     {
-        if (intent.Parameters.ValueKind != JsonValueKind.Undefined
-            && intent.Parameters.ValueKind != JsonValueKind.Null
-            && intent.Parameters.TryGetProperty("_bridge_execute_fail", out var failEl)
-            && failEl.ValueKind == JsonValueKind.True)
-        {
-            return BridgeExecutionResult.Fail(intent, "mock failure (_bridge_execute_fail)");
-        }
+        "HighRiskStub",
+        "DrawPolylineFromCoordinates",
+        "CreatePointBlocks",
+        "ImportLandXmlSurface",
+        "CreateAlignment",
+        "CreateProfile",
+    };
 
+    /// <summary>
+    /// Validate, authorize, and execute an intent.
+    /// </summary>
+    /// <param name="intent">The intent envelope from the orchestrator.</param>
+    /// <param name="fingerprints">Model fingerprint store for stale-document checks.</param>
+    /// <param name="host">
+    /// CAD host executor. Defaults to <see cref="MockCadHost.Instance"/> (in-process stubs).
+    /// Pass a <see cref="TeighaCadHost"/> when running inside a real CAD host.
+    /// </param>
+    public static BridgeExecutionResult Execute(
+        CadIntentEnvelope intent,
+        ModelFingerprintStore fingerprints,
+        ICadHostExecutor? host = null)
+    {
+        host ??= MockCadHost.Instance;
+
+        // Stale-document guard: reject if expected fingerprint doesn't match live state.
         var live = fingerprints.Snapshot();
         if (!string.IsNullOrWhiteSpace(intent.ModelFingerprintExpected)
             && !string.Equals(
@@ -35,79 +45,16 @@ public static class IntentRouter
                 "modelFingerprintExpected does not match live model fingerprint (stale document)");
         }
 
-        var fpBefore = live;
         var mode = string.IsNullOrWhiteSpace(intent.ExecutionMode) ? "execute" : intent.ExecutionMode.Trim();
-        var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "DrawPolylineFromCoordinates", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "CreatePointBlocks", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "ImportLandXmlSurface", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "CreateAlignment", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "CreateProfile", StringComparison.Ordinal);
 
-        if (isHighRisk
+        // High-risk gate: execute mode requires human confirmation token.
+        if (s_highRiskCommands.Contains(intent.Command)
             && string.Equals(mode, "execute", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(intent.HumanConfirmationToken))
         {
             return BridgeExecutionResult.Fail(intent, $"{intent.Command} in execute mode requires humanConfirmationToken");
         }
 
-        void AddModeTelemetry(Dictionary<string, object?> t)
-        {
-            t["executionMode"] = mode;
-            if (mode is "dry_run" or "preview")
-            {
-                t["modelFingerprintAfter"] = fpBefore;
-                t["plannedSummary"] = $"{intent.Command}:{mode}";
-            }
-            else
-            {
-                fingerprints.CommitAfterSuccessfulExecute(intent.IntentId, intent.Command);
-                t["modelFingerprintAfter"] = fingerprints.Snapshot();
-                t["plannedSummary"] = "";
-            }
-        }
-
-        return intent.Command switch
-        {
-            "NoOp" => BridgeExecutionResult.Ok(intent, $"NoOp:{mode}", AddModeTelemetry),
-            "PingHost" => BridgeExecutionResult.Ok(intent, $"PingHost:{mode}", t =>
-            {
-                AddModeTelemetry(t);
-                t["hostId"] = s_hostAssembly;
-                t["build"] = s_hostVersion;
-            }),
-            "GetModelFingerprint" => BridgeExecutionResult.Ok(intent, $"GetModelFingerprint:{mode}", t =>
-            {
-                AddModeTelemetry(t);
-                t["modelFingerprint"] = fingerprints.Snapshot();
-            }),
-            "HighRiskStub" => BridgeExecutionResult.Ok(intent, $"HighRiskStub:{mode}", AddModeTelemetry),
-            "DrawPolylineFromCoordinates" => BridgeExecutionResult.Ok(intent, $"DrawPolylineFromCoordinates:{mode}", AddModeTelemetry),
-            "CreatePointBlocks" => BridgeExecutionResult.Ok(intent, $"CreatePointBlocks:{mode}", AddModeTelemetry),
-            "ImportLandXmlSurface" => BridgeExecutionResult.Ok(intent, $"ImportLandXmlSurface:{mode}", AddModeTelemetry),
-            "VerifySurface" => BridgeExecutionResult.Ok(intent, $"VerifySurface:{mode}", t =>
-            {
-                AddModeTelemetry(t);
-                // Stub: real host queries the named surface from the document.
-                t["point_count"] = 1024;
-                t["triangle_count"] = 2000;
-                t["bounds"] = new[] { new[] { 0.0, 0.0, 0.0 }, new[] { 1000.0, 1000.0, 50.0 } };
-            }),
-            "CreateAlignment" => BridgeExecutionResult.Ok(intent, $"CreateAlignment:{mode}", t =>
-            {
-                AddModeTelemetry(t);
-                // Stub: real host creates a named polyline with stationing XData.
-                t["length"] = 538.52;
-                t["station_range"] = new[] { 0.0, 538.52 };
-            }),
-            "CreateProfile" => BridgeExecutionResult.Ok(intent, $"CreateProfile:{mode}", t =>
-            {
-                AddModeTelemetry(t);
-                // Stub: real host creates a vertical profile attached to the named alignment.
-                t["pvi_count"] = 3;
-                t["elevation_range"] = new[] { 100.0, 105.0 };
-            }),
-            _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
-        };
+        return host.ExecuteCommand(intent, mode, fingerprints);
     }
 }
