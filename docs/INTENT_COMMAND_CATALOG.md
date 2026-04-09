@@ -184,6 +184,49 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
 
 **Design note:** Completes the Import → Verify lifecycle. First command that returns meaningful query data in telemetry, exercising the bridge's return-data path. No confirmation token needed (read-only, `low` risk).
 
+### CreateAlignment
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host creates a named horizontal alignment from the given vertices on the specified layer. In Carlson/IntelliCAD, this is typically represented as a named `Polyline` with stationing XData or a `.cl` centerline file. |
+
+**Parameters:**
+
+```json
+{
+  "name": "Main St CL",
+  "points": [[1000.0, 2000.0, 100.0], [1200.0, 2100.0, 101.5], [1500.0, 2050.0, 99.8]],
+  "start_station": 0.0,
+  "layer": "ALIGNMENT",
+  "type": "centerline"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `name` | `string` | yes | Unique alignment identifier within the document. |
+| `points` | `array of [number, number, number]` | yes | 3D vertices defining horizontal geometry. Minimum 2 points. |
+| `start_station` | `number` | yes | Starting station value (e.g. `0+00` = `0.0`). |
+| `layer` | `string` | yes | Target CAD layer name. |
+| `type` | `string` | no | Alignment classification: `"centerline"`, `"offset"`, `"curb"`. Defaults to `"centerline"` if omitted. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "length": 538.52,
+  "station_range": [0.0, 538.52]
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `length` | `number` | Calculated alignment length from vertices. |
+| `station_range` | `[number, number]` | `[start_station, start_station + length]`. |
+
+**Design note:** Alignments are the backbone of civil corridor design. This command creates the horizontal geometry; vertical profiles and cross-sections are future commands that reference the alignment by `name`. The host representation (Polyline + XData vs. Carlson `.cl` format) is a host decision — the intent envelope is representation-agnostic.
+
 ---
 
 ## Proprietary CAD API–backed commands

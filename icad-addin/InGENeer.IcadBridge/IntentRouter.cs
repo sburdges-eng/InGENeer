@@ -40,7 +40,8 @@ public static class IntentRouter
         var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal)
                          || string.Equals(intent.Command, "DrawPolylineFromCoordinates", StringComparison.Ordinal)
                          || string.Equals(intent.Command, "CreatePointBlocks", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "ImportLandXmlSurface", StringComparison.Ordinal);
+                         || string.Equals(intent.Command, "ImportLandXmlSurface", StringComparison.Ordinal)
+                         || string.Equals(intent.Command, "CreateAlignment", StringComparison.Ordinal);
 
         if (isHighRisk
             && string.Equals(mode, "execute", StringComparison.OrdinalIgnoreCase)
@@ -90,6 +91,13 @@ public static class IntentRouter
                 t["point_count"] = 1024;
                 t["triangle_count"] = 2000;
                 t["bounds"] = new[] { new[] { 0.0, 0.0, 0.0 }, new[] { 1000.0, 1000.0, 50.0 } };
+            }),
+            "CreateAlignment" => BridgeExecutionResult.Ok(intent, $"CreateAlignment:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                // Stub: real host creates a named polyline with stationing XData.
+                t["length"] = 538.52;
+                t["station_range"] = new[] { 0.0, 538.52 };
             }),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };

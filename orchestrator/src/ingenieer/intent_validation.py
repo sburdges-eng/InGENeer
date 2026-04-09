@@ -22,6 +22,7 @@ ALLOWED_COMMANDS: frozenset[str] = frozenset(
         "CreatePointBlocks",
         "ImportLandXmlSurface",
         "VerifySurface",
+        "CreateAlignment",
     },
 )
 
@@ -35,6 +36,7 @@ COMMAND_RISK: dict[str, str] = {
     "CreatePointBlocks": "high",
     "ImportLandXmlSurface": "high",
     "VerifySurface": "low",
+    "CreateAlignment": "high",
 }
 
 

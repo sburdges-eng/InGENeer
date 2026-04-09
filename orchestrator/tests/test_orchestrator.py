@@ -242,6 +242,60 @@ def test_pipeline_import_landxml_surface_execute_with_token(tmp_path):
     ]
 
 
+def test_pipeline_create_alignment_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="align-pipe-1",
+        command="CreateAlignment",
+        parameters={
+            "name": "Main St CL",
+            "points": [[1000, 2000, 100], [1200, 2100, 101.5], [1500, 2050, 99.8]],
+            "start_station": 0.0,
+            "layer": "ALIGNMENT",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
+def test_pipeline_create_alignment_execute_with_token(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="align-pipe-2",
+        command="CreateAlignment",
+        parameters={
+            "name": "Bypass Rd CL",
+            "points": [[0, 0, 0], [500, 300, 10], [1000, 200, 5]],
+            "start_station": 100.0,
+            "layer": "ALIGNMENT",
+            "type": "centerline",
+        },
+        executionMode="execute",
+        humanConfirmationToken="approved-align-789",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
 def test_pipeline_verify_surface_execute_no_token(tmp_path):
     """VerifySurface is low-risk: execute mode works without confirmation token."""
     audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")

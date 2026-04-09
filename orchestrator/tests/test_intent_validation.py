@@ -245,6 +245,66 @@ def test_import_landxml_surface_execute_with_token_passes():
     assert errs == []
 
 
+def test_create_alignment_accepted_dry_run():
+    intent = CadIntentEnvelope(
+        intentId="align-1",
+        command="CreateAlignment",
+        parameters={
+            "name": "Main St CL",
+            "points": [[1000, 2000, 100], [1200, 2100, 101.5], [1500, 2050, 99.8]],
+            "start_station": 0.0,
+            "layer": "ALIGNMENT",
+            "type": "centerline",
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_create_alignment_execute_requires_token():
+    intent = CadIntentEnvelope(
+        intentId="align-2",
+        command="CreateAlignment",
+        parameters={
+            "name": "Main St CL",
+            "points": [[1000, 2000, 100], [1200, 2100, 101.5]],
+            "start_station": 0.0,
+            "layer": "ALIGNMENT",
+        },
+        executionMode="execute",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert any("humanConfirmationToken" in e for e in errs)
+
+
+def test_create_alignment_execute_with_token_passes():
+    intent = CadIntentEnvelope(
+        intentId="align-3",
+        command="CreateAlignment",
+        parameters={
+            "name": "Bypass Rd CL",
+            "points": [[0, 0, 0], [500, 300, 10], [1000, 200, 5]],
+            "start_station": 100.0,
+            "layer": "ALIGNMENT",
+            "type": "offset",
+        },
+        executionMode="execute",
+        humanConfirmationToken="operator-approved-align",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
 def test_verify_surface_accepted_no_token_needed():
     intent = CadIntentEnvelope(
         intentId="vs-1",
