@@ -242,6 +242,28 @@ def test_pipeline_import_landxml_surface_execute_with_token(tmp_path):
     ]
 
 
+def test_pipeline_verify_surface_execute_no_token(tmp_path):
+    """VerifySurface is low-risk: execute mode works without confirmation token."""
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="vs-pipe-1",
+        command="VerifySurface",
+        parameters={"surface_name": "Existing Ground"},
+        executionMode="execute",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
 def test_validate_rejects_unknown_command(tmp_path):
     audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
     out = tmp_path / "out"

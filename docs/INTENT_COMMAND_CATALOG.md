@@ -147,6 +147,43 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
 
 **Design note:** External files are referenced by key, not by path. The `landxml_path_key` maps to an entry in the `paths` bucket of the outer contract payload (`contracts.py`), maintaining the air-gapped security model where the intent envelope never carries absolute filesystem paths.
 
+### VerifySurface
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `low` |
+| **Execution** | Host queries the named surface and returns metadata. Read-only — no document mutation. |
+
+**Parameters:**
+
+```json
+{
+  "surface_name": "Existing Ground"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `surface_name` | `string` | yes | Name of the surface to query in the CAD document. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "point_count": 1024,
+  "triangle_count": 2000,
+  "bounds": [[minX, minY, minZ], [maxX, maxY, maxZ]]
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `point_count` | `integer` | Number of surface definition points. |
+| `triangle_count` | `integer` | Number of TIN triangles. |
+| `bounds` | `[[number, number, number], [number, number, number]]` | Axis-aligned bounding box: `[min, max]` corners. |
+
+**Design note:** Completes the Import → Verify lifecycle. First command that returns meaningful query data in telemetry, exercising the bridge's return-data path. No confirmation token needed (read-only, `low` risk).
+
 ---
 
 ## Proprietary CAD API–backed commands

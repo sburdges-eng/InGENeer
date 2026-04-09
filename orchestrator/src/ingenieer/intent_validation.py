@@ -21,6 +21,7 @@ ALLOWED_COMMANDS: frozenset[str] = frozenset(
         "DrawPolylineFromCoordinates",
         "CreatePointBlocks",
         "ImportLandXmlSurface",
+        "VerifySurface",
     },
 )
 
@@ -33,6 +34,7 @@ COMMAND_RISK: dict[str, str] = {
     "DrawPolylineFromCoordinates": "high",
     "CreatePointBlocks": "high",
     "ImportLandXmlSurface": "high",
+    "VerifySurface": "low",
 }
 
 

@@ -245,6 +245,20 @@ def test_import_landxml_surface_execute_with_token_passes():
     assert errs == []
 
 
+def test_verify_surface_accepted_no_token_needed():
+    intent = CadIntentEnvelope(
+        intentId="vs-1",
+        command="VerifySurface",
+        parameters={"surface_name": "Existing Ground"},
+        executionMode="execute",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
 @pytest.mark.skipif(
     not Path(__file__).resolve().parents[2].joinpath("schemas", "cad_intent_envelope.schema.json").is_file(),
     reason="schema file not at expected repo layout",

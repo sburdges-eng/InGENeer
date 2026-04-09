@@ -83,6 +83,14 @@ public static class IntentRouter
             "DrawPolylineFromCoordinates" => BridgeExecutionResult.Ok(intent, $"DrawPolylineFromCoordinates:{mode}", AddModeTelemetry),
             "CreatePointBlocks" => BridgeExecutionResult.Ok(intent, $"CreatePointBlocks:{mode}", AddModeTelemetry),
             "ImportLandXmlSurface" => BridgeExecutionResult.Ok(intent, $"ImportLandXmlSurface:{mode}", AddModeTelemetry),
+            "VerifySurface" => BridgeExecutionResult.Ok(intent, $"VerifySurface:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                // Stub: real host queries the named surface from the document.
+                t["point_count"] = 1024;
+                t["triangle_count"] = 2000;
+                t["bounds"] = new[] { new[] { 0.0, 0.0, 0.0 }, new[] { 1000.0, 1000.0, 50.0 } };
+            }),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };
     }
