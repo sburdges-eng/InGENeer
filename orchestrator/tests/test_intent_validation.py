@@ -305,6 +305,75 @@ def test_create_alignment_execute_with_token_passes():
     assert errs == []
 
 
+def test_create_profile_accepted_dry_run():
+    intent = CadIntentEnvelope(
+        intentId="prof-1",
+        command="CreateProfile",
+        parameters={
+            "alignment_name": "Main St CL",
+            "profile_name": "Finished Grade",
+            "pvi_data": [
+                {"station": 0.0, "elevation": 100.0},
+                {"station": 250.0, "elevation": 105.0},
+                {"station": 538.52, "elevation": 102.0},
+            ],
+            "layer": "C-ROAD-PROF",
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_create_profile_execute_requires_token():
+    intent = CadIntentEnvelope(
+        intentId="prof-2",
+        command="CreateProfile",
+        parameters={
+            "alignment_name": "Main St CL",
+            "profile_name": "Existing Ground",
+            "pvi_data": [
+                {"station": 0.0, "elevation": 100.0},
+                {"station": 538.52, "elevation": 102.0},
+            ],
+            "layer": "C-ROAD-PROF",
+        },
+        executionMode="execute",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert any("humanConfirmationToken" in e for e in errs)
+
+
+def test_create_profile_execute_with_token_passes():
+    intent = CadIntentEnvelope(
+        intentId="prof-3",
+        command="CreateProfile",
+        parameters={
+            "alignment_name": "Bypass Rd CL",
+            "profile_name": "Design Grade",
+            "pvi_data": [
+                {"station": 100.0, "elevation": 50.0},
+                {"station": 300.0, "elevation": 55.0},
+                {"station": 600.0, "elevation": 48.0},
+            ],
+            "layer": "C-ROAD-PROF",
+        },
+        executionMode="execute",
+        humanConfirmationToken="operator-approved-prof",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
 def test_verify_surface_accepted_no_token_needed():
     intent = CadIntentEnvelope(
         intentId="vs-1",

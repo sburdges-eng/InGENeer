@@ -227,6 +227,53 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
 
 **Design note:** Alignments are the backbone of civil corridor design. This command creates the horizontal geometry; vertical profiles and cross-sections are future commands that reference the alignment by `name`. The host representation (Polyline + XData vs. Carlson `.cl` format) is a host decision — the intent envelope is representation-agnostic.
 
+### CreateProfile
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host creates a vertical profile attached to a named alignment, defined by PVI (Point of Vertical Intersection) data. |
+
+**Parameters:**
+
+```json
+{
+  "alignment_name": "Main St CL",
+  "profile_name": "Finished Grade",
+  "pvi_data": [
+    {"station": 0.0, "elevation": 100.0},
+    {"station": 250.0, "elevation": 105.0},
+    {"station": 538.52, "elevation": 102.0}
+  ],
+  "layer": "C-ROAD-PROF"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `alignment_name` | `string` | yes | Name of the parent horizontal alignment. Must exist in the document. |
+| `profile_name` | `string` | yes | Unique name for this vertical profile. |
+| `pvi_data` | `array of PVI objects` | yes | Minimum 2 PVIs. Stations must be monotonically increasing. |
+| `pvi_data[].station` | `number` | yes | Station along the parent alignment. |
+| `pvi_data[].elevation` | `number` | yes | Elevation at this PVI. |
+| `layer` | `string` | yes | Target CAD layer name. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "pvi_count": 3,
+  "elevation_range": [100.0, 105.0]
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `pvi_count` | `integer` | Number of PVIs in the profile. |
+| `elevation_range` | `[number, number]` | `[min_elevation, max_elevation]` across all PVIs. |
+
+**Design note:** Profiles reference alignments by `alignment_name`, establishing the horizontal-then-vertical civil design workflow. The PVI array uses structured objects (station + elevation) rather than flat coordinate tuples, exercising the bridge's nested parameter handling. Vertical curve geometry (K-values, curve lengths) is a future extension to the PVI objects.
+
 ---
 
 ## Proprietary CAD API–backed commands

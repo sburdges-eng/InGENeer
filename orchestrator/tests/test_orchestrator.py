@@ -296,6 +296,66 @@ def test_pipeline_create_alignment_execute_with_token(tmp_path):
     ]
 
 
+def test_pipeline_create_profile_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="prof-pipe-1",
+        command="CreateProfile",
+        parameters={
+            "alignment_name": "Main St CL",
+            "profile_name": "Finished Grade",
+            "pvi_data": [
+                {"station": 0.0, "elevation": 100.0},
+                {"station": 250.0, "elevation": 105.0},
+                {"station": 538.52, "elevation": 102.0},
+            ],
+            "layer": "C-ROAD-PROF",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
+def test_pipeline_create_profile_execute_with_token(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="prof-pipe-2",
+        command="CreateProfile",
+        parameters={
+            "alignment_name": "Bypass Rd CL",
+            "profile_name": "Design Grade",
+            "pvi_data": [
+                {"station": 100.0, "elevation": 50.0},
+                {"station": 600.0, "elevation": 48.0},
+            ],
+            "layer": "C-ROAD-PROF",
+        },
+        executionMode="execute",
+        humanConfirmationToken="approved-prof-101",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
 def test_pipeline_verify_surface_execute_no_token(tmp_path):
     """VerifySurface is low-risk: execute mode works without confirmation token."""
     audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")

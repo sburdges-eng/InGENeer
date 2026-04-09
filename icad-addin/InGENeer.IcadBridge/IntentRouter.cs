@@ -41,7 +41,8 @@ public static class IntentRouter
                          || string.Equals(intent.Command, "DrawPolylineFromCoordinates", StringComparison.Ordinal)
                          || string.Equals(intent.Command, "CreatePointBlocks", StringComparison.Ordinal)
                          || string.Equals(intent.Command, "ImportLandXmlSurface", StringComparison.Ordinal)
-                         || string.Equals(intent.Command, "CreateAlignment", StringComparison.Ordinal);
+                         || string.Equals(intent.Command, "CreateAlignment", StringComparison.Ordinal)
+                         || string.Equals(intent.Command, "CreateProfile", StringComparison.Ordinal);
 
         if (isHighRisk
             && string.Equals(mode, "execute", StringComparison.OrdinalIgnoreCase)
@@ -98,6 +99,13 @@ public static class IntentRouter
                 // Stub: real host creates a named polyline with stationing XData.
                 t["length"] = 538.52;
                 t["station_range"] = new[] { 0.0, 538.52 };
+            }),
+            "CreateProfile" => BridgeExecutionResult.Ok(intent, $"CreateProfile:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                // Stub: real host creates a vertical profile attached to the named alignment.
+                t["pvi_count"] = 3;
+                t["elevation_range"] = new[] { 100.0, 105.0 };
             }),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };
