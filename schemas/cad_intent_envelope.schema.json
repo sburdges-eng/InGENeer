@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/cad_intent_envelope.schema.json",
+  "title": "CadIntentEnvelope",
+  "description": "Validated CAD execution intent from the orchestrator to the iCAD bridge (InGENeer / AutonomAtIon).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "intentId", "command", "parameters"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "intentId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "targetDocumentRef": {
+      "type": ["string", "null"]
+    },
+    "modelFingerprintExpected": {
+      "type": ["string", "null"]
+    }
+  }
+}

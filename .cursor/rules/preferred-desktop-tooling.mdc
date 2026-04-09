@@ -1,0 +1,20 @@
+---
+description: Preferred desktop stack for GIS, 2D/3D CAD, and math automation
+alwaysApply: true
+---
+
+# Preferred desktop tooling (InGENeer / related work)
+
+When recommending software, export formats, or automation approaches for **manual work and file prep** (not the orchestrator execution contract), use this mapping:
+
+| Role | Preferred tool |
+|------|----------------|
+| GIS, CRS, maps, contours, terrain | **QGIS**; add **GRASS** when workflows need it (e.g. raster/terrain analysis, topology-heavy operations). |
+| 2D CAD sheets, simple DWG/DXF | **LibreCAD**. |
+| 3D solids / meshes | **FreeCAD** (see `AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` for worker/orchestrator boundaries). |
+| Math / automation | **Python** plus **spreadsheets** (LibreOffice Calc, Excel, or similar as context fits). |
+
+## Agent behavior
+
+- Treat these as **defaults for advice and script design** (e.g. PyQGIS, FreeCAD’s Python API, DXF-oriented libraries such as `ezdxf` when appropriate).
+- **Do not** assume a GUI or desktop session exists in headless/CI unless the user says so; prefer batch/CLI/API paths when automating.

@@ -1,0 +1,30 @@
+---
+description: AutonomAtIon architecture (InGENeer) — layers, phases, boundaries
+globs:
+  - AutonomAtIon/**/*
+  - schemas/**/*
+  - docs/**/*
+  - orchestrator/**/*
+  - README.md
+---
+
+# InGENeer / AutonomAtIon (auto-attached on related paths)
+
+You are editing artifacts governed by **domain isolation**: orchestrator code validates and transports; **CAD execution** (future C# iCAD add-in) mutates the drawing on the **UI thread** inside **native transactions** with **rollback**. **No B-rep geometry** in the Python orchestrator. **No LLM** in the CAD execution layer.
+
+## Read first (full canon)
+
+- [AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) — rules 1–5, SOPs 2–6 (air gap, docs, modality, diffs, git bailout).
+- [AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md) — L0–L6 checklists, phase↔layer map, versioning table.
+
+## Non-negotiables (summary)
+
+1. **No invented proprietary CAD APIs** (Carlson, ITC/IntelliCAD, Autodesk, etc.). Use `TODO` + official doc snippet if unsure.
+2. **Do not remove** error handling, logging, fingerprint/verification gates, or audit behavior to "clean up" code.
+3. **Intent contract:** `schemas/cad_intent_envelope.schema.json` must stay aligned with `CadIntentEnvelope` and [docs/INTENT_COMMAND_CATALOG.md](docs/INTENT_COMMAND_CATALOG.md); bump intent `schemaVersion` on breaking envelope changes.
+4. **Wire contract:** `ingenieer.contracts.SCHEMA_VERSION` is separate from intent schema—bump when outer contract shape breaks.
+5. **Orchestrator phases:** `validate_intent` → `sync_baseline` → `dispatch_execute` → `verify_result` ([orchestrator/src/ingenieer/orchestrator.py](orchestrator/src/ingenieer/orchestrator.py)).
+
+## Workspace hygiene
+
+Prefer **separate Cursor windows** for orchestrator vs future CAD plugin (SOP 2). Pass **JSON schema / payload samples** across the boundary the same way production will.

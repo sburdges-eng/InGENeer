@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="InGENeer.Bridge.LoopbackHost/InGENeer.Bridge.LoopbackHost.csproj" />
+  <Project Path="InGENeer.IcadBridge/InGENeer.IcadBridge.csproj" />
+</Solution>
