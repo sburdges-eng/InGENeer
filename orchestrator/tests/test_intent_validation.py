@@ -73,6 +73,123 @@ def test_high_risk_dry_run_skips_confirmation():
     assert errs == []
 
 
+def test_draw_polyline_accepted_dry_run():
+    intent = CadIntentEnvelope(
+        intentId="poly-1",
+        command="DrawPolylineFromCoordinates",
+        parameters={
+            "points": [[0, 0, 0], [10, 10, 1]],
+            "layer": "BOUNDARY",
+            "closed": False,
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_draw_polyline_execute_requires_token():
+    intent = CadIntentEnvelope(
+        intentId="poly-2",
+        command="DrawPolylineFromCoordinates",
+        parameters={
+            "points": [[0, 0, 0], [10, 10, 1]],
+            "layer": "BOUNDARY",
+            "closed": True,
+        },
+        executionMode="execute",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert any("humanConfirmationToken" in e for e in errs)
+
+
+def test_create_point_blocks_accepted_dry_run():
+    intent = CadIntentEnvelope(
+        intentId="pts-1",
+        command="CreatePointBlocks",
+        parameters={
+            "layer": "SURVEY",
+            "blockName": "IRON_PIN",
+            "points": [
+                {"location": [1000, 2000, 345.67], "number": 101, "description": "IRON PIN"},
+            ],
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_create_point_blocks_execute_requires_token():
+    intent = CadIntentEnvelope(
+        intentId="pts-2",
+        command="CreatePointBlocks",
+        parameters={
+            "layer": "SURVEY",
+            "blockName": "IRON_PIN",
+            "points": [
+                {"location": [1000, 2000, 345.67], "number": 101},
+            ],
+        },
+        executionMode="execute",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert any("humanConfirmationToken" in e for e in errs)
+
+
+def test_draw_polyline_execute_with_token_passes():
+    intent = CadIntentEnvelope(
+        intentId="poly-3",
+        command="DrawPolylineFromCoordinates",
+        parameters={
+            "points": [[0, 0, 0], [10, 10, 1], [20, 5, 2]],
+            "layer": "CENTERLINE",
+            "closed": False,
+        },
+        executionMode="execute",
+        humanConfirmationToken="operator-approved-abc",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_create_point_blocks_execute_with_token_passes():
+    intent = CadIntentEnvelope(
+        intentId="pts-3",
+        command="CreatePointBlocks",
+        parameters={
+            "layer": "TOPO",
+            "blockName": "GROUND_SHOT",
+            "points": [
+                {"location": [500, 600, 200.0], "number": 1, "elevation": 200.0, "description": "GS"},
+                {"location": [510, 610, 201.5], "number": 2, "elevation": 201.5},
+            ],
+        },
+        executionMode="execute",
+        humanConfirmationToken="operator-approved-xyz",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=False, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
 @pytest.mark.skipif(
     not Path(__file__).resolve().parents[2].joinpath("schemas", "cad_intent_envelope.schema.json").is_file(),
     reason="schema file not at expected repo layout",

@@ -90,6 +90,107 @@ def test_high_risk_execute_fails_without_confirmation(tmp_path):
     assert result.phases[-1].phase == "validate_intent"
 
 
+def test_pipeline_draw_polyline_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="poly-pipe-1",
+        command="DrawPolylineFromCoordinates",
+        parameters={
+            "points": [[0, 0, 0], [10, 10, 1], [20, 5, 2]],
+            "layer": "BOUNDARY",
+            "closed": True,
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
+def test_pipeline_create_point_blocks_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="pts-pipe-1",
+        command="CreatePointBlocks",
+        parameters={
+            "layer": "SURVEY",
+            "blockName": "IRON_PIN",
+            "points": [
+                {"location": [1000, 2000, 345.67], "number": 101, "description": "IRON PIN"},
+                {"location": [1050, 2010, 346.12], "number": 102, "description": "MAG NAIL"},
+            ],
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
+def test_pipeline_draw_polyline_execute_no_token_fails(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="poly-pipe-2",
+        command="DrawPolylineFromCoordinates",
+        parameters={
+            "points": [[0, 0, 0], [10, 10, 1]],
+            "layer": "TOPO",
+            "closed": False,
+        },
+        executionMode="execute",
+    )
+    result = orch.run(intent)
+    assert not result.success
+    assert result.phases[-1].phase == "validate_intent"
+
+
+def test_pipeline_create_point_blocks_execute_with_token(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="pts-pipe-2",
+        command="CreatePointBlocks",
+        parameters={
+            "layer": "CONTROL",
+            "blockName": "BENCHMARK",
+            "points": [
+                {"location": [500, 600, 200.0], "number": 1, "elevation": 200.0},
+            ],
+        },
+        executionMode="execute",
+        humanConfirmationToken="approved-token-123",
+    )
+    result = orch.run(intent)
+    assert result.success
+    assert [p.phase for p in result.phases] == [
+        "validate_intent",
+        "sync_baseline",
+        "dispatch_execute",
+        "verify_result",
+    ]
+
+
 def test_validate_rejects_unknown_command(tmp_path):
     audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
     out = tmp_path / "out"

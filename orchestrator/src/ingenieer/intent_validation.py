@@ -13,7 +13,14 @@ from ingenieer.models import CadIntentEnvelope, IntentValidationConfig
 
 # MVP catalog — keep in sync with docs/INTENT_COMMAND_CATALOG.md
 ALLOWED_COMMANDS: frozenset[str] = frozenset(
-    {"NoOp", "PingHost", "GetModelFingerprint", "HighRiskStub"},
+    {
+        "NoOp",
+        "PingHost",
+        "GetModelFingerprint",
+        "HighRiskStub",
+        "DrawPolylineFromCoordinates",
+        "CreatePointBlocks",
+    },
 )
 
 # Risk tier for human-confirmation rules (execute + high requires humanConfirmationToken).
@@ -22,6 +29,8 @@ COMMAND_RISK: dict[str, str] = {
     "PingHost": "low",
     "GetModelFingerprint": "low",
     "HighRiskStub": "high",
+    "DrawPolylineFromCoordinates": "high",
+    "CreatePointBlocks": "high",
 }
 
 

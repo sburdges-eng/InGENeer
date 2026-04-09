@@ -55,6 +55,75 @@ The loopback host publishes **opaque SHA-256 hex** fingerprints from `ModelFinge
 
 ---
 
+## Civil drawing commands
+
+These intents represent civil/survey drawing primitives. The orchestrator validates envelope structure and risk rules; **parameter-level validation (coordinate bounds, layer existence, block definition lookup) is the host's responsibility** per architecture rule 1.
+
+### DrawPolylineFromCoordinates
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host draws a polyline through the given 3D coordinates on the specified layer. |
+
+**Parameters:**
+
+```json
+{
+  "points": [[1000.0, 2000.0, 100.0], [1050.0, 2010.0, 101.5], [1100.0, 2005.0, 99.8]],
+  "layer": "BOUNDARY",
+  "closed": true,
+  "color": "red"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `points` | `array of [number, number, number]` | yes | 3D coordinates (x, y, z). Minimum 2 points. |
+| `layer` | `string` | yes | Target CAD layer name. |
+| `closed` | `boolean` | yes | Mathematically closed polyline. Affects area, hatching, and linetype rendering. Not the same as first/last vertex coincidence. |
+| `color` | `string` | no | Optional color override (host interprets). |
+
+### CreatePointBlocks
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host inserts block references at each point location within a single transaction. |
+
+**Parameters:**
+
+```json
+{
+  "layer": "SURVEY",
+  "blockName": "IRON_PIN",
+  "points": [
+    {
+      "location": [1000.0, 2000.0, 345.67],
+      "number": 101,
+      "elevation": 345.67,
+      "description": "IRON PIN",
+      "attributes": {"crew": "A", "date": "2026-04-09"}
+    }
+  ]
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `layer` | `string` | yes | Target CAD layer for all points in this batch. |
+| `blockName` | `string` | yes | Block definition name to insert at each location. |
+| `points` | `array of point objects` | yes | Minimum 1 point. |
+| `points[].location` | `[number, number, number]` | yes | 3D insertion point. |
+| `points[].number` | `integer` | no | Survey point number. |
+| `points[].elevation` | `number` | no | Display elevation (may differ from `location[2]` for geoid vs. ellipsoidal). |
+| `points[].description` | `string` | no | Point description code (e.g. "IRON PIN", "MAG NAIL"). |
+| `points[].attributes` | `object` | no | Arbitrary key-value block attributes passed to the host. |
+
+**Design note:** Batch by design. Survey point import is a bulk operation; one intent = one transaction = one fingerprint verification, avoiding N round-trips.
+
+---
+
 ## Proprietary CAD API–backed commands
 
 **None in this repository yet.** Add rows here only after **official API** snippets exist (AutonomAtIon rule 4), and extend `ALLOWED_COMMANDS` / `IntentRouter` / this table together.
