@@ -37,7 +37,9 @@ public static class IntentRouter
 
         var fpBefore = live;
         var mode = string.IsNullOrWhiteSpace(intent.ExecutionMode) ? "execute" : intent.ExecutionMode.Trim();
-        var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal);
+        var isHighRisk = string.Equals(intent.Command, "HighRiskStub", StringComparison.Ordinal)
+                         || string.Equals(intent.Command, "DrawPolylineFromCoordinates", StringComparison.Ordinal)
+                         || string.Equals(intent.Command, "CreatePointBlocks", StringComparison.Ordinal);
 
         if (isHighRisk
             && string.Equals(mode, "execute", StringComparison.OrdinalIgnoreCase)
@@ -77,6 +79,8 @@ public static class IntentRouter
                 t["modelFingerprint"] = fingerprints.Snapshot();
             }),
             "HighRiskStub" => BridgeExecutionResult.Ok(intent, $"HighRiskStub:{mode}", AddModeTelemetry),
+            "DrawPolylineFromCoordinates" => BridgeExecutionResult.Ok(intent, $"DrawPolylineFromCoordinates:{mode}", AddModeTelemetry),
+            "CreatePointBlocks" => BridgeExecutionResult.Ok(intent, $"CreatePointBlocks:{mode}", AddModeTelemetry),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };
     }
