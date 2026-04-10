@@ -13,6 +13,15 @@ from ingenieer.bridge_client import BridgeClient
 from ingenieer.models import OrchestratorContext, PhaseResult
 
 
+def _transport_data(bridge: BridgeClient | None = None, exc: Exception | None = None) -> dict[str, Any]:
+    telemetry = getattr(exc, "transport_telemetry", None)
+    if telemetry is None and bridge is not None:
+        telemetry = getattr(bridge, "last_transport_telemetry", None)
+    if telemetry is None:
+        return {}
+    return {"transport": telemetry.as_dict()}
+
+
 def run_sync_baseline(bridge: BridgeClient, ctx: OrchestratorContext) -> PhaseResult:
     """GET /v1/model-fingerprint via bridge; optional stale guard vs envelope."""
     try:
@@ -22,7 +31,7 @@ def run_sync_baseline(bridge: BridgeClient, ctx: OrchestratorContext) -> PhaseRe
             phase="sync_baseline",
             success=False,
             message=f"Baseline sync failed: {exc}",
-            data={},
+            data=_transport_data(exc=exc),
         )
     ctx.model_fingerprint_observed = observed
     intent = ctx.intent
@@ -35,13 +44,14 @@ def run_sync_baseline(bridge: BridgeClient, ctx: OrchestratorContext) -> PhaseRe
                 data={
                     "expected": intent.modelFingerprintExpected,
                     "observed": observed,
+                    **_transport_data(bridge=bridge),
                 },
             )
     return PhaseResult(
         phase="sync_baseline",
         success=True,
         message="Baseline sync OK",
-        data={"modelFingerprintObserved": observed},
+        data={"modelFingerprintObserved": observed, **_transport_data(bridge=bridge)},
     )
 
 
@@ -62,7 +72,7 @@ def run_dispatch_execute(bridge: BridgeClient, ctx: OrchestratorContext) -> Phas
             phase="dispatch_execute",
             success=False,
             message=f"Dispatch exception: {exc}",
-            data={},
+            data=_transport_data(exc=exc),
         )
     payload = br.model_dump(mode="json")
     ctx.bridge_execution = payload
@@ -75,11 +85,11 @@ def run_dispatch_execute(bridge: BridgeClient, ctx: OrchestratorContext) -> Phas
             phase="dispatch_execute",
             success=False,
             message=br.error_traceback or "bridge reported execution failure",
-            data={"dispatch_ack": ack, "bridge_execution": payload},
+            data={"dispatch_ack": ack, "bridge_execution": payload, **_transport_data(bridge=bridge)},
         )
     return PhaseResult(
         phase="dispatch_execute",
         success=True,
         message="Dispatch completed",
-        data={"dispatch_ack": ack, "bridge_execution": payload},
+        data={"dispatch_ack": ack, "bridge_execution": payload, **_transport_data(bridge=bridge)},
     )

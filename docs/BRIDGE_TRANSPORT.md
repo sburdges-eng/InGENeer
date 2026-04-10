@@ -33,6 +33,14 @@
 - For HTTP **429** and **503**, a valid `Retry-After` response header overrides the normal exponential backoff. Integer-second and HTTP-date formats are supported. Invalid `Retry-After` values are ignored and the client falls back to the default bounded backoff.
 - Timeout handling is explicit at the transport layer: connect/read timeouts are surfaced as **transient transport failures**, so `verify_result` may retry them but schema/protocol mismatches still fail closed.
 - The Python HTTP client keeps a **single reusable keep-alive connection** per `HttpBridgeClient` instance. If the host closes the socket or a transient transport fault occurs, the client drops that connection and reconnects on the next attempt.
+- Each HTTP call also records structured transport telemetry with:
+  - `request_id`
+  - `attempts`
+  - `total_duration_sec`
+  - `retried_status_codes`
+  - `retry_after_used`
+  - `final_status_code`
+  - `error_class`
 
 ---
 
@@ -43,6 +51,7 @@ After a successful `POST /v1/execute`, the orchestrator **re-reads** `GET /v1/mo
 - Hosts **must** populate `modelFingerprintAfter` for every successful execute (including `dry_run` / `preview`, where it should match the pre-mutation fingerprint).
 - On mismatch, verification fails **without** retry (deterministic failure).
 - **Verification retries** (`OrchestratorConfig.max_verification_attempts`, default **3**, with `verification_backoff_sec`) apply only when the fingerprint GET fails with a **transient** transport error (as reported by the client).
+- For baseline sync and dispatch, the orchestrator includes a `transport` object in `PhaseResult.data` so retry behavior is visible in pipeline results and downstream audit records.
 
 ---
 

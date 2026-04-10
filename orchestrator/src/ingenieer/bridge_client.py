@@ -9,6 +9,7 @@ import random
 import socket
 import threading
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Protocol
@@ -40,6 +41,28 @@ def _telemetry_scalar_str(value: Any) -> str | None:
     return None
 
 
+@dataclass(slots=True)
+class TransportTelemetry:
+    request_id: str
+    attempts: int
+    total_duration_sec: float
+    retried_status_codes: list[int] = field(default_factory=list)
+    retry_after_used: bool = False
+    final_status_code: int | None = None
+    error_class: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "request_id": self.request_id,
+            "attempts": self.attempts,
+            "total_duration_sec": self.total_duration_sec,
+            "retried_status_codes": list(self.retried_status_codes),
+            "retry_after_used": self.retry_after_used,
+            "final_status_code": self.final_status_code,
+            "error_class": self.error_class,
+        }
+
+
 class MockBridgeClient:
     """Deterministic bridge for tests and CI (no network)."""
 
@@ -52,6 +75,7 @@ class MockBridgeClient:
         self._fingerprint = model_fingerprint
         self._mutation_seq = 0
         self._verify_transient_remaining = verify_transient_failures
+        self.last_transport_telemetry: TransportTelemetry | None = None
 
     def get_model_fingerprint(self) -> str:
         return self._fingerprint
@@ -189,10 +213,19 @@ def _transient_http_code(code: int) -> bool:
 
 
 class _HttpTransportError(RuntimeError):
-    def __init__(self, message: str, *, transient: bool, terminal: bool = False) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        transient: bool,
+        terminal: bool = False,
+        error_class: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.transient = transient
         self.terminal = terminal
+        self.error_class = error_class
+        self.transport_telemetry: TransportTelemetry | None = None
 
 
 class _HttpConnectionPool:
@@ -337,6 +370,7 @@ class HttpBridgeClient:
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff_sec
         self._pool = _HttpConnectionPool(parsed_base, timeout_sec)
+        self.last_transport_telemetry: TransportTelemetry | None = None
 
     def _default_backoff_delay(self, attempt: int) -> float:
         base = self._retry_backoff * (2**attempt)
@@ -351,6 +385,7 @@ class HttpBridgeClient:
             f"deadline exceeded after {self._deadline:.2f}s",
             transient=True,
             terminal=True,
+            error_class="timeout",
         )
 
     def _sleep_with_deadline(self, delay_sec: float, deadline: float, *, cause: Exception | None = None) -> None:
@@ -382,12 +417,58 @@ class HttpBridgeClient:
         status_code: int,
         retry_after: str | None,
         attempt: int,
-    ) -> float:
+    ) -> tuple[float, bool]:
         if status_code in (429, 503):
             retry_after_delay = _parse_retry_after(retry_after)
             if retry_after_delay is not None:
-                return retry_after_delay
-        return self._default_backoff_delay(attempt)
+                return retry_after_delay, True
+        return self._default_backoff_delay(attempt), False
+
+    def _build_transport_telemetry(
+        self,
+        *,
+        request_id: str,
+        attempts: int,
+        started_at: float,
+        retried_status_codes: list[int],
+        retry_after_used: bool,
+        final_status_code: int | None,
+        error_class: str | None,
+    ) -> TransportTelemetry:
+        return TransportTelemetry(
+            request_id=request_id,
+            attempts=attempts,
+            total_duration_sec=max(0.0, time.monotonic() - started_at),
+            retried_status_codes=list(retried_status_codes),
+            retry_after_used=retry_after_used,
+            final_status_code=final_status_code,
+            error_class=error_class,
+        )
+
+    def _attach_transport_telemetry(
+        self,
+        exc: _HttpTransportError,
+        *,
+        request_id: str,
+        attempts: int,
+        started_at: float,
+        retried_status_codes: list[int],
+        retry_after_used: bool,
+        final_status_code: int | None,
+        error_class: str | None,
+    ) -> _HttpTransportError:
+        telemetry = self._build_transport_telemetry(
+            request_id=request_id,
+            attempts=attempts,
+            started_at=started_at,
+            retried_status_codes=retried_status_codes,
+            retry_after_used=retry_after_used,
+            final_status_code=final_status_code,
+            error_class=error_class,
+        )
+        exc.transport_telemetry = telemetry
+        self.last_transport_telemetry = telemetry
+        return exc
 
     def _open_json(
         self,
@@ -398,16 +479,29 @@ class HttpBridgeClient:
         attempts: int | None = None,
         request_id_prefix: str,
         idempotency_key: str | None = None,
-    ) -> tuple[int, dict[str, Any]]:
+    ) -> tuple[int, dict[str, Any], TransportTelemetry]:
         last_exc: _HttpTransportError | None = None
         tries = (self._max_retries + 1) if attempts is None else attempts
         deadline = time.monotonic() + self._deadline
+        started_at = time.monotonic()
         target = self._build_target(path)
+        retried_status_codes: list[int] = []
+        retry_after_used = False
+        last_request_id = ""
 
         for attempt in range(tries):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise self._deadline_error()
+                raise self._attach_transport_telemetry(
+                    self._deadline_error(),
+                    request_id=last_request_id,
+                    attempts=attempt,
+                    started_at=started_at,
+                    retried_status_codes=retried_status_codes,
+                    retry_after_used=retry_after_used,
+                    final_status_code=None,
+                    error_class="timeout",
+                )
 
             try:
                 request_timeout = min(self._timeout, remaining)
@@ -417,6 +511,7 @@ class HttpBridgeClient:
                     body=body,
                     idempotency_key=idempotency_key,
                 )
+                last_request_id = headers["X-Request-Id"]
                 code, raw, response_headers = self._pool.request(
                     method,
                     target,
@@ -425,27 +520,88 @@ class HttpBridgeClient:
                     timeout_sec=request_timeout,
                 )
                 if _transient_http_code(code):
-                    last_exc = _HttpTransportError(f"HTTP {code}: {raw}", transient=True)
+                    last_exc = _HttpTransportError(
+                        f"HTTP {code}: {raw}",
+                        transient=True,
+                        error_class="transient",
+                    )
                     self._pool.close()
                     if attempt + 1 < tries:
-                        backoff = self._retry_delay_for_response(
+                        retried_status_codes.append(code)
+                        backoff, used_retry_after = self._retry_delay_for_response(
                             code,
                             response_headers.get("retry-after"),
                             attempt,
                         )
+                        retry_after_used = retry_after_used or used_retry_after
                         self._sleep_with_deadline(backoff, deadline)
                         continue
-                    raise last_exc
+                    raise self._attach_transport_telemetry(
+                        last_exc,
+                        request_id=last_request_id,
+                        attempts=attempt + 1,
+                        started_at=started_at,
+                        retried_status_codes=retried_status_codes,
+                        retry_after_used=retry_after_used,
+                        final_status_code=code,
+                        error_class="transient",
+                    )
                 if not 200 <= code < 300:
-                    raise _HttpTransportError(f"HTTP {code}: {raw}", transient=False)
+                    raise self._attach_transport_telemetry(
+                        _HttpTransportError(
+                            f"HTTP {code}: {raw}",
+                            transient=False,
+                            error_class="permanent",
+                        ),
+                        request_id=last_request_id,
+                        attempts=attempt + 1,
+                        started_at=started_at,
+                        retried_status_codes=retried_status_codes,
+                        retry_after_used=retry_after_used,
+                        final_status_code=code,
+                        error_class="permanent",
+                    )
                 try:
-                    return code, json.loads(raw)
+                    payload = json.loads(raw)
+                    transport = self._build_transport_telemetry(
+                        request_id=last_request_id,
+                        attempts=attempt + 1,
+                        started_at=started_at,
+                        retried_status_codes=retried_status_codes,
+                        retry_after_used=retry_after_used,
+                        final_status_code=code,
+                        error_class=None,
+                    )
+                    self.last_transport_telemetry = transport
+                    return code, payload, transport
                 except json.JSONDecodeError as exc:
-                    raise _HttpTransportError(
-                        f"invalid JSON response: {exc.msg}",
-                        transient=False,
+                    raise self._attach_transport_telemetry(
+                        _HttpTransportError(
+                            f"invalid JSON response: {exc.msg}",
+                            transient=False,
+                            error_class="permanent",
+                        ),
+                        request_id=last_request_id,
+                        attempts=attempt + 1,
+                        started_at=started_at,
+                        retried_status_codes=retried_status_codes,
+                        retry_after_used=retry_after_used,
+                        final_status_code=code,
+                        error_class="permanent",
                     ) from exc
             except _HttpTransportError as exc:
+                if exc.transport_telemetry is None:
+                    error_class = exc.error_class or ("transient" if exc.transient else "permanent")
+                    exc = self._attach_transport_telemetry(
+                        exc,
+                        request_id=last_request_id,
+                        attempts=attempt + 1,
+                        started_at=started_at,
+                        retried_status_codes=retried_status_codes,
+                        retry_after_used=retry_after_used,
+                        final_status_code=None,
+                        error_class=error_class,
+                    )
                 last_exc = exc
                 if exc.transient and not exc.terminal and attempt + 1 < tries:
                     backoff = self._default_backoff_delay(attempt)
@@ -453,6 +609,11 @@ class HttpBridgeClient:
                     continue
                 raise
             except Exception as exc:
+                error_class = (
+                    "timeout"
+                    if isinstance(exc, (TimeoutError, socket.timeout))
+                    else "transient" if _is_transient_transport_exception(exc) else "permanent"
+                )
                 message = (
                     f"timeout after {self._timeout:.2f}s"
                     if isinstance(exc, (TimeoutError, socket.timeout))
@@ -461,12 +622,22 @@ class HttpBridgeClient:
                 last_exc = _HttpTransportError(
                     message,
                     transient=_is_transient_transport_exception(exc),
+                    error_class=error_class,
                 )
                 if last_exc.transient and attempt + 1 < tries:
                     backoff = self._default_backoff_delay(attempt)
                     self._sleep_with_deadline(backoff, deadline, cause=exc)
                     continue
-                raise last_exc from exc
+                raise self._attach_transport_telemetry(
+                    last_exc,
+                    request_id=last_request_id,
+                    attempts=attempt + 1,
+                    started_at=started_at,
+                    retried_status_codes=retried_status_codes,
+                    retry_after_used=retry_after_used,
+                    final_status_code=None,
+                    error_class=error_class,
+                ) from exc
 
         assert last_exc is not None
         raise last_exc
@@ -480,16 +651,21 @@ class HttpBridgeClient:
 
     def _get_model_fingerprint(self, request_id_prefix: str) -> str:
         try:
-            _code, payload = self._open_json(
+            _code, payload, _transport = self._open_json(
                 "GET",
                 "/v1/model-fingerprint",
                 request_id_prefix=request_id_prefix,
             )
         except _HttpTransportError as exc:
-            raise _HttpTransportError(
+            wrapped = _HttpTransportError(
                 f"model-fingerprint {exc}",
                 transient=exc.transient,
-            ) from exc
+                terminal=exc.terminal,
+                error_class=exc.error_class,
+            )
+            wrapped.transport_telemetry = exc.transport_telemetry
+            self.last_transport_telemetry = exc.transport_telemetry
+            raise wrapped from exc
         fp = payload.get("modelFingerprint")
         if not isinstance(fp, str) or not fp:
             raise RuntimeError("model-fingerprint response missing modelFingerprint string")
@@ -501,7 +677,7 @@ class HttpBridgeClient:
     def execute_intent(self, intent: CadIntentEnvelope) -> BridgeExecutionResult:
         body = json.dumps(intent.model_dump(mode="json")).encode("utf-8")
         try:
-            _code, payload = self._open_json(
+            _code, payload, _transport = self._open_json(
                 "POST",
                 "/v1/execute",
                 body=body,
