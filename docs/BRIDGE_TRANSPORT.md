@@ -30,6 +30,7 @@
 - Config: `OrchestratorConfig.bridge.deadline_sec` (default **60** seconds, range 1–600).
 - Applies to the full wall-clock duration of one bridge call, including retries and backoff; once exceeded, the call fails as a transient timeout instead of stretching until retry exhaustion.
 - **Transient retries** (orchestrator only, not inside CAD transactions): `bridge.http_max_retries` (default **2** extra attempts) and `bridge.http_retry_backoff_sec` (default **0.25** s, exponential backoff with jitter). Retries apply to connection errors and HTTP **429**, **502**, **503**, **504** only—not to logical 4xx failures.
+- For HTTP **429** and **503**, a valid `Retry-After` response header overrides the normal exponential backoff. Integer-second and HTTP-date formats are supported. Invalid `Retry-After` values are ignored and the client falls back to the default bounded backoff.
 - Timeout handling is explicit at the transport layer: connect/read timeouts are surfaced as **transient transport failures**, so `verify_result` may retry them but schema/protocol mismatches still fail closed.
 - The Python HTTP client keeps a **single reusable keep-alive connection** per `HttpBridgeClient` instance. If the host closes the socket or a transient transport fault occurs, the client drops that connection and reconnects on the next attempt.
 
@@ -49,6 +50,11 @@ After a successful `POST /v1/execute`, the orchestrator **re-reads** `GET /v1/mo
 
 - Every request body includes `intentId`. The host **should** treat duplicate `intentId` + same `command` + same payload as idempotent (no double mutation) when the first attempt already committed—exact policy is host-specific.
 - Return the same `intentId` in `telemetry` on the execution result for log correlation.
+- The orchestrator adds `X-Request-Id` on every HTTP call. Formats are:
+  - baseline GET: `model-fingerprint:attempt-N`
+  - verify GET: `verify-fingerprint:{intentId}:attempt-N`
+  - execute POST: `{intentId}:attempt-N`
+- The orchestrator adds `X-Idempotency-Key: {intentId}` on `POST /v1/execute` only, so retried dispatches can be deduplicated by the bridge.
 
 ---
 

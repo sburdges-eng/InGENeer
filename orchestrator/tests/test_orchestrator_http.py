@@ -11,11 +11,15 @@ class _BridgeHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "InGENeerTest/1.0"
     fingerprint = "http-test-fp"
+    request_ids: list[str] = []
+    idempotency_keys: list[str | None] = []
 
     def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
         return
 
     def do_GET(self) -> None:
+        self.__class__.request_ids.append(self.headers.get("X-Request-Id", ""))
+        self.__class__.idempotency_keys.append(self.headers.get("X-Idempotency-Key"))
         if self.path.split("?", 1)[0] != "/v1/model-fingerprint":
             self.send_error(404)
             return
@@ -27,6 +31,8 @@ class _BridgeHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self) -> None:
+        self.__class__.request_ids.append(self.headers.get("X-Request-Id", ""))
+        self.__class__.idempotency_keys.append(self.headers.get("X-Idempotency-Key"))
         if self.path.split("?", 1)[0] != "/v1/execute":
             self.send_error(404)
             return
@@ -63,6 +69,8 @@ class _BridgeHandler(BaseHTTPRequestHandler):
 
 def test_pipeline_http_mode_roundtrip(tmp_path):
     _BridgeHandler.fingerprint = "http-test-fp"
+    _BridgeHandler.request_ids = []
+    _BridgeHandler.idempotency_keys = []
     server = ThreadingHTTPServer(("127.0.0.1", 0), _BridgeHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -93,3 +101,9 @@ def test_pipeline_http_mode_roundtrip(tmp_path):
         "verify_result",
     ]
     assert result.phases[-2].data["dispatch_ack"]["status"] == "executed"
+    assert _BridgeHandler.request_ids == [
+        "model-fingerprint:attempt-1",
+        "h1:attempt-1",
+        "verify-fingerprint:h1:attempt-1",
+    ]
+    assert _BridgeHandler.idempotency_keys == [None, "h1", None]
