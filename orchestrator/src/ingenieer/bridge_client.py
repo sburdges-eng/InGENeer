@@ -9,6 +9,8 @@ import random
 import socket
 import threading
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, Protocol
 from urllib.parse import SplitResult, urlsplit
 
@@ -187,9 +189,10 @@ def _transient_http_code(code: int) -> bool:
 
 
 class _HttpTransportError(RuntimeError):
-    def __init__(self, message: str, *, transient: bool) -> None:
+    def __init__(self, message: str, *, transient: bool, terminal: bool = False) -> None:
         super().__init__(message)
         self.transient = transient
+        self.terminal = terminal
 
 
 class _HttpConnectionPool:
@@ -209,7 +212,7 @@ class _HttpConnectionPool:
         body: bytes | None = None,
         headers: dict[str, str] | None = None,
         timeout_sec: float | None = None,
-    ) -> tuple[int, str]:
+    ) -> tuple[int, str, dict[str, str]]:
         with self._lock:
             request_timeout = self._timeout if timeout_sec is None else timeout_sec
             conn = self._connection
@@ -226,9 +229,10 @@ class _HttpConnectionPool:
                 response = conn.getresponse()
                 raw = response.read().decode("utf-8")
                 status = response.status
+                response_headers = {key.lower(): value for key, value in response.getheaders()}
                 if response.will_close:
                     self._close_locked()
-                return status, raw
+                return status, raw, response_headers
             except Exception:
                 self._close_locked()
                 raise
@@ -281,6 +285,34 @@ def _is_transient_transport_exception(exc: Exception) -> bool:
     return False
 
 
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    if value is None:
+        return None
+
+    stripped = value.strip()
+    if not stripped:
+        return None
+
+    try:
+        return max(0.0, float(int(stripped)))
+    except ValueError:
+        pass
+
+    try:
+        retry_dt = parsedate_to_datetime(stripped)
+    except (TypeError, ValueError, IndexError):
+        return None
+
+    if retry_dt.tzinfo is None:
+        retry_dt = retry_dt.replace(tzinfo=timezone.utc)
+
+    return max(0.0, (retry_dt.astimezone(timezone.utc) - _utc_now()).total_seconds())
+
+
 class HttpBridgeClient:
     """HTTP client for GET /v1/model-fingerprint and POST /v1/execute."""
 
@@ -306,10 +338,56 @@ class HttpBridgeClient:
         self._retry_backoff = retry_backoff_sec
         self._pool = _HttpConnectionPool(parsed_base, timeout_sec)
 
-    def _sleep_backoff(self, attempt: int) -> None:
+    def _default_backoff_delay(self, attempt: int) -> float:
         base = self._retry_backoff * (2**attempt)
         jitter = random.uniform(0, self._retry_backoff * 0.5)
-        time.sleep(base + jitter)
+        return base + jitter
+
+    def _sleep_for(self, delay_sec: float) -> None:
+        time.sleep(delay_sec)
+
+    def _deadline_error(self) -> _HttpTransportError:
+        return _HttpTransportError(
+            f"deadline exceeded after {self._deadline:.2f}s",
+            transient=True,
+            terminal=True,
+        )
+
+    def _sleep_with_deadline(self, delay_sec: float, deadline: float, *, cause: Exception | None = None) -> None:
+        if time.monotonic() + delay_sec >= deadline:
+            raise self._deadline_error() from cause
+        self._sleep_for(delay_sec)
+
+    def _build_request_headers(
+        self,
+        *,
+        request_id_prefix: str,
+        attempt_number: int,
+        body: bytes | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, str]:
+        headers = {
+            "Accept": "application/json",
+            "Connection": "keep-alive",
+            "X-Request-Id": f"{request_id_prefix}:attempt-{attempt_number}",
+        }
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+        if idempotency_key is not None:
+            headers["X-Idempotency-Key"] = idempotency_key
+        return headers
+
+    def _retry_delay_for_response(
+        self,
+        status_code: int,
+        retry_after: str | None,
+        attempt: int,
+    ) -> float:
+        if status_code in (429, 503):
+            retry_after_delay = _parse_retry_after(retry_after)
+            if retry_after_delay is not None:
+                return retry_after_delay
+        return self._default_backoff_delay(attempt)
 
     def _open_json(
         self,
@@ -318,26 +396,28 @@ class HttpBridgeClient:
         *,
         body: bytes | None = None,
         attempts: int | None = None,
+        request_id_prefix: str,
+        idempotency_key: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
         last_exc: _HttpTransportError | None = None
         tries = (self._max_retries + 1) if attempts is None else attempts
         deadline = time.monotonic() + self._deadline
         target = self._build_target(path)
-        headers = {"Accept": "application/json", "Connection": "keep-alive"}
-        if body is not None:
-            headers["Content-Type"] = "application/json"
 
         for attempt in range(tries):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise _HttpTransportError(
-                    f"deadline exceeded after {self._deadline:.2f}s",
-                    transient=True,
-                )
+                raise self._deadline_error()
 
             try:
                 request_timeout = min(self._timeout, remaining)
-                code, raw = self._pool.request(
+                headers = self._build_request_headers(
+                    request_id_prefix=request_id_prefix,
+                    attempt_number=attempt + 1,
+                    body=body,
+                    idempotency_key=idempotency_key,
+                )
+                code, raw, response_headers = self._pool.request(
                     method,
                     target,
                     body=body,
@@ -348,16 +428,12 @@ class HttpBridgeClient:
                     last_exc = _HttpTransportError(f"HTTP {code}: {raw}", transient=True)
                     self._pool.close()
                     if attempt + 1 < tries:
-                        backoff = self._retry_backoff * (2**attempt) + random.uniform(
-                            0,
-                            self._retry_backoff * 0.5,
+                        backoff = self._retry_delay_for_response(
+                            code,
+                            response_headers.get("retry-after"),
+                            attempt,
                         )
-                        if time.monotonic() + backoff >= deadline:
-                            raise _HttpTransportError(
-                                f"deadline exceeded after {self._deadline:.2f}s",
-                                transient=True,
-                            ) from None
-                        time.sleep(backoff)
+                        self._sleep_with_deadline(backoff, deadline)
                         continue
                     raise last_exc
                 if not 200 <= code < 300:
@@ -371,17 +447,9 @@ class HttpBridgeClient:
                     ) from exc
             except _HttpTransportError as exc:
                 last_exc = exc
-                if exc.transient and attempt + 1 < tries:
-                    backoff = self._retry_backoff * (2**attempt) + random.uniform(
-                        0,
-                        self._retry_backoff * 0.5,
-                    )
-                    if time.monotonic() + backoff >= deadline:
-                        raise _HttpTransportError(
-                            f"deadline exceeded after {self._deadline:.2f}s",
-                            transient=True,
-                        ) from exc
-                    time.sleep(backoff)
+                if exc.transient and not exc.terminal and attempt + 1 < tries:
+                    backoff = self._default_backoff_delay(attempt)
+                    self._sleep_with_deadline(backoff, deadline, cause=exc)
                     continue
                 raise
             except Exception as exc:
@@ -395,7 +463,8 @@ class HttpBridgeClient:
                     transient=_is_transient_transport_exception(exc),
                 )
                 if last_exc.transient and attempt + 1 < tries:
-                    self._sleep_backoff(attempt)
+                    backoff = self._default_backoff_delay(attempt)
+                    self._sleep_with_deadline(backoff, deadline, cause=exc)
                     continue
                 raise last_exc from exc
 
@@ -409,9 +478,13 @@ class HttpBridgeClient:
     def close(self) -> None:
         self._pool.close()
 
-    def get_model_fingerprint(self) -> str:
+    def _get_model_fingerprint(self, request_id_prefix: str) -> str:
         try:
-            _code, payload = self._open_json("GET", "/v1/model-fingerprint")
+            _code, payload = self._open_json(
+                "GET",
+                "/v1/model-fingerprint",
+                request_id_prefix=request_id_prefix,
+            )
         except _HttpTransportError as exc:
             raise _HttpTransportError(
                 f"model-fingerprint {exc}",
@@ -422,10 +495,19 @@ class HttpBridgeClient:
             raise RuntimeError("model-fingerprint response missing modelFingerprint string")
         return fp
 
+    def get_model_fingerprint(self) -> str:
+        return self._get_model_fingerprint("model-fingerprint")
+
     def execute_intent(self, intent: CadIntentEnvelope) -> BridgeExecutionResult:
         body = json.dumps(intent.model_dump(mode="json")).encode("utf-8")
         try:
-            _code, payload = self._open_json("POST", "/v1/execute", body=body)
+            _code, payload = self._open_json(
+                "POST",
+                "/v1/execute",
+                body=body,
+                request_id_prefix=intent.intentId,
+                idempotency_key=intent.intentId,
+            )
         except _HttpTransportError as exc:
             return BridgeExecutionResult(
                 success=False,
@@ -448,7 +530,7 @@ class HttpBridgeClient:
                 evidence={"intentId": intent.intentId},
             )
         try:
-            observed = self.get_model_fingerprint()
+            observed = self._get_model_fingerprint(f"verify-fingerprint:{intent.intentId}")
         except _HttpTransportError as exc:
             return BridgeVerifyResult(
                 success=False,
