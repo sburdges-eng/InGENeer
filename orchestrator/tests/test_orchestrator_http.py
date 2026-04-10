@@ -8,6 +8,7 @@ from ingenieer.orchestrator import PipelineOrchestrator
 
 
 class _BridgeHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
     server_version = "InGENeerTest/1.0"
     fingerprint = "http-test-fp"
 
