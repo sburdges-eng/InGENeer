@@ -136,6 +136,50 @@ class TestConfigFile:
         assert out["project_id"] == "cli-test-proj"
 
 
+BATCH_CONTRACT = json.dumps({
+    "project": {"name": "cli-batch-test"},
+    "intents": [
+        {"intentId": "cb1", "command": "NoOp", "parameters": {}},
+        {"intentId": "cb2", "command": "PingHost", "parameters": {}},
+    ],
+})
+
+
+class TestBatchMode:
+    def test_batch_from_stdin(self):
+        r = _run_cli("--batch", "--dry-run", stdin=BATCH_CONTRACT)
+        assert r.returncode == 0
+        out = json.loads(r.stdout)
+        assert out["success"] is True
+        assert out["completed_steps"] == 2
+        assert out["total_steps"] == 2
+
+    def test_batch_from_file(self, tmp_path):
+        f = tmp_path / "contract.json"
+        f.write_text(BATCH_CONTRACT)
+        r = _run_cli("--batch", str(f), "--dry-run")
+        assert r.returncode == 0
+        out = json.loads(r.stdout)
+        assert out["success"] is True
+
+    def test_batch_with_failure_exits_nonzero(self):
+        contract = json.dumps({
+            "project": {"name": "cli-batch-fail"},
+            "intents": [
+                {
+                    "intentId": "bf1",
+                    "command": "DrawPolylineFromCoordinates",
+                    "parameters": {"points": [[0, 0, 0], [1, 1, 1]], "layer": "X", "closed": False},
+                    "executionMode": "execute",
+                },
+            ],
+        })
+        r = _run_cli("--batch", stdin=contract)
+        assert r.returncode == 1
+        out = json.loads(r.stdout)
+        assert out["success"] is False
+
+
 class TestValidationErrors:
     def test_high_risk_without_token_fails(self):
         intent = json.dumps({

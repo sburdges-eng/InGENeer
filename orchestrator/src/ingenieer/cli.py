@@ -1,4 +1,4 @@
-"""Thin CLI: run the pipeline for one intent JSON envelope."""
+"""Thin CLI: run the pipeline for one intent JSON envelope (or a batch contract)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from ingenieer.audit import AuditLogger
+from ingenieer.batch import BatchPipeline, ProjectContract
 from ingenieer.intent_validation import default_intent_schema_path
 from ingenieer.models import CadIntentEnvelope, OrchestratorConfig
 from ingenieer.orchestrator import PipelineOrchestrator
@@ -20,6 +21,14 @@ def main() -> None:
         nargs="?",
         type=Path,
         help="Path to JSON file (omit to read stdin)",
+    )
+    parser.add_argument(
+        "--batch",
+        nargs="?",
+        const="_stdin_",
+        default=None,
+        metavar="CONTRACT_FILE",
+        help="Run a batch of intents from a project contract JSON (omit path to read stdin)",
     )
     parser.add_argument(
         "--output-dir",
@@ -66,12 +75,66 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    raw = _read_intent_json(args.intent)
-    intent = CadIntentEnvelope.model_validate(raw)
-
     if args.dry_run and args.preview:
         print("error: use only one of --dry-run and --preview", file=sys.stderr)
         sys.exit(2)
+
+    cfg_dict: dict = {}
+    if args.config and args.config.is_file():
+        cfg_dict = json.loads(args.config.read_text(encoding="utf-8"))
+
+    config = OrchestratorConfig.model_validate(cfg_dict)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── Batch mode ──────────────────────────────────────────────
+    if args.batch is not None:
+        raw_contract = _read_contract_json(args.batch)
+        contract = ProjectContract.model_validate(raw_contract)
+
+        if args.dry_run:
+            contract = contract.model_copy(update={"execution_mode_override": "dry_run"})
+        elif args.preview:
+            contract = contract.model_copy(update={"execution_mode_override": "preview"})
+        if args.i_confirm is not None:
+            token = args.i_confirm.strip()
+            if not token:
+                print("error: --i-confirm must be non-empty", file=sys.stderr)
+                sys.exit(2)
+            contract = contract.model_copy(update={"human_confirmation_token": token})
+
+        audit = AuditLogger(
+            log_dir=str(args.audit_dir),
+            project_id=contract.project.name,
+            hash_algo=config.audit.hash_algorithm,
+        )
+        pipeline = BatchPipeline(config, audit, args.output_dir)
+        batch_result = pipeline.run(contract)
+
+        out = {
+            "success": batch_result.success,
+            "project_id": batch_result.project_id,
+            "completed_steps": batch_result.completed_steps,
+            "total_steps": batch_result.total_steps,
+            "last_good_fingerprint": batch_result.last_good_fingerprint,
+            "errors": batch_result.errors,
+            "steps": [
+                {
+                    "intent_id": s.intent_id,
+                    "command": s.command,
+                    "success": s.pipeline_result.success,
+                    "fingerprint_before": s.fingerprint_before,
+                    "fingerprint_after": s.fingerprint_after,
+                }
+                for s in batch_result.step_results
+            ],
+        }
+        print(json.dumps(out, indent=2))
+        sys.exit(0 if batch_result.success else 1)
+
+    # ── Single-intent mode ──────────────────────────────────────
+    raw = _read_intent_json(args.intent)
+    intent = CadIntentEnvelope.model_validate(raw)
+
     if args.dry_run:
         intent = intent.model_copy(update={"executionMode": "dry_run"})
     elif args.preview:
@@ -82,13 +145,6 @@ def main() -> None:
             print("error: --i-confirm must be non-empty", file=sys.stderr)
             sys.exit(2)
         intent = intent.model_copy(update={"humanConfirmationToken": token})
-
-    cfg_dict: dict = {}
-    if args.config and args.config.is_file():
-        cfg_dict = json.loads(args.config.read_text(encoding="utf-8"))
-
-    config = OrchestratorConfig.model_validate(cfg_dict)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
 
     audit = AuditLogger(
         log_dir=str(args.audit_dir),
@@ -126,6 +182,16 @@ def main() -> None:
     }
     print(json.dumps(out, indent=2))
     sys.exit(0 if result.success else 1)
+
+
+def _read_contract_json(path_or_sentinel: str) -> object:
+    """Read a project contract JSON from stdin or a file path."""
+    if path_or_sentinel == "_stdin_":
+        return json.load(sys.stdin)
+    p = Path(path_or_sentinel)
+    if not p.is_file():
+        raise SystemExit(f"contract file not found: {p}")
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
 def _read_intent_json(path: Path | None) -> object:
