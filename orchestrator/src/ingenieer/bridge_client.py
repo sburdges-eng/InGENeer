@@ -76,50 +76,65 @@ class MockBridgeClient:
             telemetry["plannedSummary"] = ""
             stdout = f"mock:{intent.command}"
 
-        if intent.command == "PingHost":
-            telemetry["hostId"] = "mock-icad"
-            telemetry["build"] = "0-mock"
-        if intent.command == "GetModelFingerprint":
-            telemetry["modelFingerprint"] = self._fingerprint
-        if intent.command == "VerifySurface":
-            telemetry["point_count"] = 1024
-            telemetry["triangle_count"] = 2000
-            telemetry["bounds"] = [[0.0, 0.0, 0.0], [1000.0, 1000.0, 50.0]]
-        if intent.command == "CreateAlignment":
-            telemetry["length"] = 538.52
-            telemetry["station_range"] = [0.0, 538.52]
-        if intent.command == "CreateProfile":
-            telemetry["pvi_count"] = 3
-            telemetry["elevation_range"] = [100.0, 105.0]
-        if intent.command == "CreateCrossSection":
-            telemetry["station_count"] = 5
-        if intent.command == "CreateCorridorModel":
-            telemetry["corridor_length"] = 538.52
-        if intent.command == "BalanceGrading":
-            telemetry["cut_volume"] = 1250.0
-            telemetry["fill_volume"] = 1245.0
-            telemetry["net_volume"] = 5.0
-            telemetry["balanced"] = True
-        if intent.command == "CreateRetentionPond":
-            telemetry["pond_volume"] = 4500.0
-            telemetry["surface_area"] = 12000.0
-        if intent.command == "CreateSanitarySewerNetwork":
-            telemetry["structure_count"] = 2
-            telemetry["total_pipe_length"] = 250.0
-        if intent.command == "AnalyzeStormDrainage":
-            telemetry["peak_discharge"] = 12.5
-            telemetry["max_velocity"] = 4.2
-            telemetry["capacity_exceeded"] = False
-        if intent.command == "PlacePlantingLayout":
-            telemetry["plant_count"] = 2
-            telemetry["canopy_coverage_area"] = 2513.27
-        if intent.command == "CreatePavingArea":
-            telemetry["paving_area"] = 2500.0
-            telemetry["perimeter_length"] = 200.0
-        if intent.command == "DesignIrrigationZone":
-            telemetry["head_count"] = 2
-            telemetry["total_flow_gpm"] = 12.4
-            telemetry["pipe_length"] = 35.0
+        match intent.command:
+            case "NoOp":
+                telemetry["status"] = "nop_success"
+            case "PingHost":
+                telemetry["hostId"] = "mock-icad"
+                telemetry["build"] = "0-mock"
+            case "GetModelFingerprint":
+                telemetry["modelFingerprint"] = self._fingerprint
+            case "HighRiskStub":
+                telemetry["stub_executed"] = True
+            case "DrawPolylineFromCoordinates":
+                telemetry["length"] = 123.45
+                telemetry["point_count"] = len(intent.parameters.get("points", []))
+            case "CreatePointBlocks":
+                telemetry["point_count"] = len(intent.parameters.get("points", []))
+            case "ImportLandXmlSurface":
+                telemetry["surface_name"] = intent.parameters.get("surface_name", "unknown")
+                telemetry["point_count"] = 500
+                telemetry["triangle_count"] = 950
+            case "VerifySurface":
+                telemetry["point_count"] = 1024
+                telemetry["triangle_count"] = 2000
+                telemetry["bounds"] = [[0.0, 0.0, 0.0], [1000.0, 1000.0, 50.0]]
+            case "CreateAlignment":
+                telemetry["length"] = 538.52
+                telemetry["station_range"] = [0.0, 538.52]
+            case "CreateProfile":
+                telemetry["pvi_count"] = 3
+                telemetry["elevation_range"] = [100.0, 105.0]
+            case "CreateCrossSection":
+                telemetry["station_count"] = 5
+            case "CreateCorridorModel":
+                telemetry["corridor_length"] = 538.52
+            case "BalanceGrading":
+                telemetry["cut_volume"] = 1250.0
+                telemetry["fill_volume"] = 1245.0
+                telemetry["net_volume"] = 5.0
+                telemetry["balanced"] = True
+            case "CreateRetentionPond":
+                telemetry["pond_volume"] = 4500.0
+                telemetry["surface_area"] = 12000.0
+            case "CreateSanitarySewerNetwork":
+                telemetry["structure_count"] = 2
+                telemetry["total_pipe_length"] = 250.0
+            case "AnalyzeStormDrainage":
+                telemetry["peak_discharge"] = 12.5
+                telemetry["max_velocity"] = 4.2
+                telemetry["capacity_exceeded"] = False
+            case "PlacePlantingLayout":
+                telemetry["plant_count"] = 2
+                telemetry["canopy_coverage_area"] = 2513.27
+            case "CreatePavingArea":
+                telemetry["paving_area"] = 2500.0
+                telemetry["perimeter_length"] = 200.0
+            case "DesignIrrigationZone":
+                telemetry["head_count"] = 2
+                telemetry["total_flow_gpm"] = 12.4
+                telemetry["pipe_length"] = 35.0
+
         return BridgeExecutionResult(
             success=True,
             stdout=stdout,

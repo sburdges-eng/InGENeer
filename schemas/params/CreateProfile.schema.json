@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/CreateProfile.schema.json",
+  "title": "CreateProfileParameters",
+  "type": "object",
+  "required": ["alignment_name", "profile_name", "pvi_data", "layer"],
+  "properties": {
+    "alignment_name": { "type": "string", "minLength": 1 },
+    "profile_name": { "type": "string", "minLength": 1 },
+    "layer": { "type": "string", "minLength": 1 },
+    "pvi_data": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["station", "elevation"],
+        "properties": {
+          "station": { "type": "number" },
+          "elevation": { "type": "number" },
+          "curve_length": { "type": "number", "minimum": 0 },
+          "k_value": { "type": "number" }
+        }
+      }
+    }
+  }
+}

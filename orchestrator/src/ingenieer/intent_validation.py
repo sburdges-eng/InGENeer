@@ -93,18 +93,33 @@ def collect_intent_validation_errors(
     errors: list[str] = []
     if cfg.enforce_command_allowlist and intent.command not in ALLOWED_COMMANDS:
         errors.append(f"command not in allowlist: {intent.command!r}")
+
+    schema_dir = default_intent_schema_path().parent
+
     if cfg.enforce_json_schema:
-        path = default_intent_schema_path()
-        if not path.is_file():
-            errors.append(f"intent JSON Schema not found at {path} (set INGENEER_SCHEMA_DIR if needed)")
+        # 1. Validate outer envelope
+        envelope_path = schema_dir / "cad_intent_envelope.schema.json"
+        if not envelope_path.is_file():
+            errors.append(f"intent JSON Schema not found at {envelope_path} (set INGENEER_SCHEMA_DIR if needed)")
         else:
-            with path.open(encoding="utf-8") as f:
-                schema = json.load(f)
+            with envelope_path.open(encoding="utf-8") as f:
+                envelope_schema = json.load(f)
             instance = intent.model_dump(mode="json")
             try:
-                jsonschema.validate(instance, schema)
+                jsonschema.validate(instance, envelope_schema)
             except ValidationError as exc:
-                errors.append(exc.message)
+                errors.append(f"Envelope validation: {exc.message}")
+
+        # 2. Validate command-specific parameters
+        if intent.command in ALLOWED_COMMANDS:
+            params_path = schema_dir / "params" / f"{intent.command}.schema.json"
+            if params_path.is_file():
+                with params_path.open(encoding="utf-8") as f:
+                    params_schema = json.load(f)
+                try:
+                    jsonschema.validate(intent.parameters, params_schema)
+                except ValidationError as exc:
+                    errors.append(f"Parameter validation ({intent.command}): {exc.message}")
 
     if intent.executionMode == "execute" and command_risk(intent.command) == "high":
         token = (intent.humanConfirmationToken or "").strip()

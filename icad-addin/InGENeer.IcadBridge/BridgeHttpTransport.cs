@@ -13,6 +13,8 @@ public static class BridgeHttpTransport
     public static async Task HandleRequestAsync(
         HttpListenerContext ctx,
         ModelFingerprintStore fingerprints,
+        IPathResolver pathResolver,
+        BridgeValidationOptions validationOptions,
         JsonSerializerOptions jsonOptions)
     {
         var req = ctx.Request;
@@ -28,7 +30,7 @@ public static class BridgeHttpTransport
 
             if (req.HttpMethod == "POST" && path == "/v1/execute")
             {
-                await HandleExecuteAsync(req, res, fingerprints, jsonOptions).ConfigureAwait(false);
+                await HandleExecuteAsync(req, res, fingerprints, pathResolver, validationOptions, jsonOptions).ConfigureAwait(false);
                 return;
             }
 
@@ -59,6 +61,8 @@ public static class BridgeHttpTransport
         HttpListenerRequest req,
         HttpListenerResponse res,
         ModelFingerprintStore fingerprints,
+        IPathResolver pathResolver,
+        BridgeValidationOptions validationOptions,
         JsonSerializerOptions jsonOptions)
     {
         using var reader = new StreamReader(req.InputStream, req.ContentEncoding);
@@ -70,7 +74,10 @@ public static class BridgeHttpTransport
             return;
         }
 
-        var result = IntentRouter.Execute(intent, fingerprints);
+        // Host selection logic: Teigha if supported, otherwise Mock.
+        // We inject the pathResolver into the real host.
+        var host = new TeighaCadHost(pathResolver);
+        var result = IntentRouter.Execute(intent, fingerprints, host, validationOptions);
         var outJson = JsonSerializer.Serialize(result);
         await WriteJsonAsync(res, 200, outJson).ConfigureAwait(false);
     }

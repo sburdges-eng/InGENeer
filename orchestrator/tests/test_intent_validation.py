@@ -18,6 +18,117 @@ def test_default_schema_path_points_at_repo_file():
     assert p.parent.name == "schemas"
 
 
+def test_create_alignment_schema_validation_success():
+    """Valid CreateAlignment intent should pass with enforce_json_schema=True."""
+    intent = CadIntentEnvelope(
+        intentId="a1",
+        command="CreateAlignment",
+        parameters={
+            "name": "Main St CL",
+            "points": [[1000.0, 2000.0, 100.0], [1200.0, 2100.0, 101.5]],
+            "start_station": 0.0,
+            "layer": "ALIGNMENT"
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=True, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
+def test_create_alignment_schema_validation_failure_missing_field():
+    """Missing required field in CreateAlignment should fail with deep validation."""
+    intent = CadIntentEnvelope(
+        intentId="a2",
+        command="CreateAlignment",
+        parameters={
+            "name": "Missing Points",
+            # points is missing
+            "start_station": 0.0,
+            "layer": "ALIGNMENT"
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=True, enforce_command_allowlist=True),
+    )
+    assert any("'points' is a required property" in e for e in errs)
+
+
+def test_create_alignment_schema_validation_failure_too_few_points():
+    """CreateAlignment with only one point should fail the minItems: 2 constraint."""
+    intent = CadIntentEnvelope(
+        intentId="a3",
+        command="CreateAlignment",
+        parameters={
+            "name": "Single Point",
+            "points": [[1000.0, 2000.0, 100.0]], # Only 1 point
+            "start_station": 0.0,
+            "layer": "ALIGNMENT"
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=True, enforce_command_allowlist=True),
+    )
+    assert any("is too short" in e for e in errs)
+
+
+def test_create_alignment_schema_validation_failure_wrong_coordinate_type():
+    """Coordinate list with strings instead of numbers should fail."""
+    intent = CadIntentEnvelope(
+        intentId="a4",
+        command="CreateAlignment",
+        parameters={
+            "name": "Wrong Type",
+            "points": [["x", "y", "z"], ["1", "2", "3"]], # Strings
+            "start_station": 0.0,
+            "layer": "ALIGNMENT"
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=True, enforce_command_allowlist=True),
+    )
+    assert any("is not of type 'number'" in e for e in errs)
+
+
+def test_create_alignment_schema_validation_failure_bad_enum():
+    """Creating an alignment with an unknown type should fail the enum constraint."""
+    intent = CadIntentEnvelope(
+        intentId="a5",
+        command="CreateAlignment",
+        parameters={
+            "name": "Bad Enum",
+            "points": [[0.0, 0.0, 0.0], [1.0, 1.0, 0.0]],
+            "start_station": 0.0,
+            "layer": "ALIGNMENT",
+            "type": "imaginary-type" # Not in enum
+        },
+        executionMode="dry_run",
+    )
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=True, enforce_command_allowlist=True),
+    )
+    assert any("is not one of" in e for e in errs)
+
+
+def test_ping_host_schema_validation_success():
+    """Simple intents with empty schemas should pass validation."""
+    intent = CadIntentEnvelope(intentId="p1", command="PingHost", parameters={})
+    errs = collect_intent_validation_errors(
+        intent,
+        IntentValidationConfig(enforce_json_schema=True, enforce_command_allowlist=True),
+    )
+    assert errs == []
+
+
 def test_allowlist_rejects_unknown_command():
     intent = CadIntentEnvelope(intentId="i", command="UnknownCmd", parameters={})
     errs = collect_intent_validation_errors(

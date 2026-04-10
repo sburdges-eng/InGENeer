@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/AnalyzeStormDrainage.schema.json",
+  "title": "AnalyzeStormDrainageParameters",
+  "type": "object",
+  "required": ["network_name", "design_storm_years", "runoff_coefficient"],
+  "properties": {
+    "network_name": { "type": "string", "minLength": 1 },
+    "design_storm_years": { "type": "integer", "minimum": 1 },
+    "runoff_coefficient": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

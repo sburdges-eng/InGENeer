@@ -707,6 +707,7 @@ def test_pipeline_create_sanitary_sewer_network_execute_with_token(tmp_path):
             "alignment_name": "Bypass Rd CL",
             "structures": [
                 {"station": 100.0, "type": "Manhole 48in", "rim_elevation": 95.0, "invert_elevation": 87.0},
+                {"station": 250.0, "type": "Manhole 48in", "rim_elevation": 92.0, "invert_elevation": 85.0},
             ],
             "pipe_material": "HDPE",
             "pipe_diameter": 10.0,

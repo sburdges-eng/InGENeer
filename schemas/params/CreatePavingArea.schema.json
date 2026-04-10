@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/CreatePavingArea.schema.json",
+  "title": "CreatePavingAreaParameters",
+  "type": "object",
+  "required": ["boundary_points", "material_type", "subbase_depth", "permeability_coefficient", "layer"],
+  "properties": {
+    "boundary_points": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          { "type": "number" },
+          { "type": "number" },
+          { "type": "number" }
+        ],
+        "minItems": 3,
+        "maxItems": 3
+      }
+    },
+    "material_type": { "type": "string" },
+    "subbase_depth": { "type": "number", "minimum": 0 },
+    "permeability_coefficient": { "type": "number", "minimum": 0, "maximum": 1 },
+    "layer": { "type": "string", "minLength": 1 }
+  }
+}

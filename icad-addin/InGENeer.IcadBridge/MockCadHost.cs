@@ -50,7 +50,11 @@ public sealed class MockCadHost : ICadHostExecutor
 
         return intent.Command switch
         {
-            "NoOp" => BridgeExecutionResult.Ok(intent, $"NoOp:{mode}", AddModeTelemetry),
+            "NoOp" => BridgeExecutionResult.Ok(intent, $"NoOp:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["status"] = "nop_success";
+            }),
             "PingHost" => BridgeExecutionResult.Ok(intent, $"PingHost:{mode}", t =>
             {
                 AddModeTelemetry(t);
@@ -62,10 +66,29 @@ public sealed class MockCadHost : ICadHostExecutor
                 AddModeTelemetry(t);
                 t["modelFingerprint"] = fingerprints.Snapshot();
             }),
-            "HighRiskStub" => BridgeExecutionResult.Ok(intent, $"HighRiskStub:{mode}", AddModeTelemetry),
-            "DrawPolylineFromCoordinates" => BridgeExecutionResult.Ok(intent, $"DrawPolylineFromCoordinates:{mode}", AddModeTelemetry),
-            "CreatePointBlocks" => BridgeExecutionResult.Ok(intent, $"CreatePointBlocks:{mode}", AddModeTelemetry),
-            "ImportLandXmlSurface" => BridgeExecutionResult.Ok(intent, $"ImportLandXmlSurface:{mode}", AddModeTelemetry),
+            "HighRiskStub" => BridgeExecutionResult.Ok(intent, $"HighRiskStub:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["stub_executed"] = true;
+            }),
+            "DrawPolylineFromCoordinates" => BridgeExecutionResult.Ok(intent, $"DrawPolylineFromCoordinates:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["length"] = 123.45;
+                t["point_count"] = intent.Parameters.TryGetProperty("points", out var pts) && pts.ValueKind == JsonValueKind.Array ? pts.GetArrayLength() : 0;
+            }),
+            "CreatePointBlocks" => BridgeExecutionResult.Ok(intent, $"CreatePointBlocks:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["point_count"] = intent.Parameters.TryGetProperty("points", out var pts) && pts.ValueKind == JsonValueKind.Array ? pts.GetArrayLength() : 0;
+            }),
+            "ImportLandXmlSurface" => BridgeExecutionResult.Ok(intent, $"ImportLandXmlSurface:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["surface_name"] = intent.Parameters.TryGetProperty("surface_name", out var sn) ? sn.GetString() : "unknown";
+                t["point_count"] = 500;
+                t["triangle_count"] = 950;
+            }),
             "VerifySurface" => BridgeExecutionResult.Ok(intent, $"VerifySurface:{mode}", t =>
             {
                 AddModeTelemetry(t);

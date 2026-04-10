@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/ImportLandXmlSurface.schema.json",
+  "title": "ImportLandXmlSurfaceParameters",
+  "type": "object",
+  "required": ["landxml_path_key", "surface_name", "layer"],
+  "properties": {
+    "landxml_path_key": { "type": "string", "minLength": 1 },
+    "surface_name": { "type": "string", "minLength": 1 },
+    "layer": { "type": "string", "minLength": 1 }
+  }
+}
