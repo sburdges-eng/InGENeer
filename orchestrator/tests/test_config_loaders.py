@@ -1,4 +1,4 @@
-from ingenieer.models import OrchestratorConfig
+from ingenieer.models import BridgeConfig, OrchestratorConfig
 
 
 def test_from_env_with_all_vars_set(monkeypatch):
@@ -86,3 +86,9 @@ def test_from_toml_missing_file_raises(tmp_path):
         pass
     else:
         raise AssertionError("expected FileNotFoundError")
+
+
+def test_bridge_config_deadline_sec_default():
+    config = BridgeConfig()
+
+    assert config.deadline_sec == 60.0
