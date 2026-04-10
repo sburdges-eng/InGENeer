@@ -813,3 +813,245 @@ def test_validate_rejects_unknown_command(tmp_path):
     assert not result.success
     assert result.phases[-1].phase == "validate_intent"
     assert "allowlist" in result.phases[-1].message.lower()
+
+
+# --- Coverage for previously untested commands ---
+
+
+def test_pipeline_ping_host(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(intentId="ping-1", command="PingHost", parameters={})
+    result = orch.run(intent)
+    assert result.success
+    tel = result.phases[-2].data["bridge_execution"]["telemetry"]
+    assert tel["hostId"] == "mock-icad"
+    assert tel["build"] == "0-mock"
+
+
+def test_pipeline_get_model_fingerprint(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="fp-1", command="GetModelFingerprint", parameters={}
+    )
+    result = orch.run(intent)
+    assert result.success
+    tel = result.phases[-2].data["bridge_execution"]["telemetry"]
+    assert "modelFingerprint" in tel
+
+
+def test_pipeline_place_planting_layout_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="plant-1",
+        command="PlacePlantingLayout",
+        parameters={
+            "species_id": "QUER-RUBR",
+            "points": [
+                {"location": [500.0, 600.0, 100.0]},
+                {"location": [510.0, 610.0, 100.2]},
+            ],
+            "mature_spread": 40.0,
+            "layer": "L-PLNT-TREE",
+            "container_size": "15gal",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+
+
+def test_pipeline_place_planting_layout_execute(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="plant-2",
+        command="PlacePlantingLayout",
+        parameters={
+            "species_id": "ACER-RUBR",
+            "points": [{"location": [100.0, 200.0, 0.0]}],
+            "mature_spread": 35.0,
+            "layer": "L-PLNT-TREE",
+        },
+        executionMode="execute",
+        humanConfirmationToken="approved-plant",
+    )
+    result = orch.run(intent)
+    assert result.success
+    tel = result.phases[-2].data["bridge_execution"]["telemetry"]
+    assert tel["plant_count"] == 2
+    assert tel["canopy_coverage_area"] > 0
+
+
+def test_pipeline_create_paving_area_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="pave-1",
+        command="CreatePavingArea",
+        parameters={
+            "boundary_points": [
+                [0.0, 0.0, 0.0],
+                [50.0, 0.0, 0.0],
+                [50.0, 50.0, 0.0],
+                [0.0, 50.0, 0.0],
+            ],
+            "material_type": "concrete",
+            "subbase_depth": 0.3,
+            "permeability_coefficient": 0.0,
+            "layer": "C-HARDSCAPE",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+
+
+def test_pipeline_create_paving_area_execute(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="pave-2",
+        command="CreatePavingArea",
+        parameters={
+            "boundary_points": [
+                [0.0, 0.0, 0.0],
+                [100.0, 0.0, 0.0],
+                [100.0, 80.0, 0.0],
+            ],
+            "material_type": "asphalt",
+            "subbase_depth": 0.45,
+            "permeability_coefficient": 0.1,
+            "layer": "C-HARDSCAPE",
+        },
+        executionMode="execute",
+        humanConfirmationToken="approved-pave",
+    )
+    result = orch.run(intent)
+    assert result.success
+    tel = result.phases[-2].data["bridge_execution"]["telemetry"]
+    assert tel["paving_area"] > 0
+    assert tel["perimeter_length"] > 0
+
+
+def test_pipeline_design_irrigation_zone_dry_run(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="irrig-1",
+        command="DesignIrrigationZone",
+        parameters={
+            "zone_id": "Z-1",
+            "heads": [
+                {"location": [10.0, 20.0, 0.0], "type": "rotor", "radius": 12.0},
+                {"location": [30.0, 20.0, 0.0], "type": "rotor", "radius": 12.0},
+            ],
+            "pipe_material": "PVC",
+            "target_psi": 45.0,
+            "layer": "L-IRRIG",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+
+
+def test_pipeline_design_irrigation_zone_execute(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(
+        intentId="irrig-2",
+        command="DesignIrrigationZone",
+        parameters={
+            "zone_id": "Z-2",
+            "heads": [
+                {"location": [0.0, 0.0, 0.0], "type": "spray", "radius": 4.5},
+            ],
+            "pipe_material": "poly",
+            "target_psi": 30.0,
+            "layer": "L-IRRIG",
+        },
+        executionMode="execute",
+        humanConfirmationToken="approved-irrig",
+    )
+    result = orch.run(intent)
+    assert result.success
+    tel = result.phases[-2].data["bridge_execution"]["telemetry"]
+    assert tel["head_count"] == 2
+    assert tel["total_flow_gpm"] > 0
+
+
+# --- Schema-enabled validation in unit tests ---
+
+
+def test_pipeline_schema_enabled_valid_passes(tmp_path):
+    """Verify that a valid CreateAlignment passes with full schema enforcement."""
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    cfg = OrchestratorConfig(
+        intent_validation={
+            "enforce_json_schema": True,
+            "enforce_command_allowlist": True,
+        },
+    )
+    orch = PipelineOrchestrator(cfg, audit, out)
+    intent = CadIntentEnvelope(
+        intentId="schema-ok",
+        command="CreateAlignment",
+        parameters={
+            "name": "Schema Test CL",
+            "points": [[0.0, 0.0, 0.0], [100.0, 50.0, 5.0]],
+            "start_station": 0.0,
+            "layer": "ALIGNMENT",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert result.success
+
+
+def test_pipeline_schema_enabled_invalid_rejected(tmp_path):
+    """Verify that missing required params are caught with schema enforcement."""
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    cfg = OrchestratorConfig(
+        intent_validation={
+            "enforce_json_schema": True,
+            "enforce_command_allowlist": True,
+        },
+    )
+    orch = PipelineOrchestrator(cfg, audit, out)
+    intent = CadIntentEnvelope(
+        intentId="schema-bad",
+        command="CreateAlignment",
+        parameters={
+            "name": "Missing Points",
+            "start_station": 0.0,
+            "layer": "ALIGNMENT",
+        },
+        executionMode="dry_run",
+    )
+    result = orch.run(intent)
+    assert not result.success
+    assert result.phases[-1].phase == "validate_intent"
+    assert "points" in result.phases[-1].message.lower()
