@@ -50,6 +50,7 @@ class TransportTelemetry:
     retry_after_used: bool = False
     final_status_code: int | None = None
     error_class: str | None = None
+    circuit_breaker_state: str = "closed"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +61,7 @@ class TransportTelemetry:
             "retry_after_used": self.retry_after_used,
             "final_status_code": self.final_status_code,
             "error_class": self.error_class,
+            "circuit_breaker_state": self.circuit_breaker_state,
         }
 
 
@@ -288,6 +290,81 @@ class _HttpConnectionPool:
             self._connection = None
 
 
+class _CircuitBreaker:
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+    def __init__(self, failure_threshold: int, cooldown_sec: float) -> None:
+        self._failure_threshold = failure_threshold
+        self._cooldown_sec = cooldown_sec
+        self._lock = threading.Lock()
+        self._state = self.CLOSED
+        self._consecutive_failures = 0
+        self._opened_at: float | None = None
+        self._half_open_probe_in_flight = False
+
+    @property
+    def state(self) -> str:
+        with self._lock:
+            return self._state
+
+    def allow_request(self) -> bool:
+        with self._lock:
+            if self._state == self.CLOSED:
+                return True
+
+            now = time.monotonic()
+            if self._state == self.OPEN:
+                assert self._opened_at is not None
+                if now - self._opened_at < self._cooldown_sec:
+                    return False
+                self._state = self.HALF_OPEN
+                self._half_open_probe_in_flight = False
+
+            if self._state == self.HALF_OPEN:
+                if self._half_open_probe_in_flight:
+                    return False
+                self._half_open_probe_in_flight = True
+                return True
+
+            raise AssertionError(f"unsupported circuit breaker state: {self._state}")
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._state = self.CLOSED
+            self._consecutive_failures = 0
+            self._opened_at = None
+            self._half_open_probe_in_flight = False
+
+    def record_failure(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            if self._state == self.HALF_OPEN:
+                self._trip_locked(now)
+                return
+
+            if self._state == self.OPEN:
+                self._opened_at = now
+                self._half_open_probe_in_flight = False
+                return
+
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self._failure_threshold:
+                self._trip_locked(now)
+
+    def record_permanent_failure(self) -> None:
+        with self._lock:
+            if self._state == self.HALF_OPEN:
+                self._half_open_probe_in_flight = False
+
+    def _trip_locked(self, opened_at: float) -> None:
+        self._state = self.OPEN
+        self._consecutive_failures = self._failure_threshold
+        self._opened_at = opened_at
+        self._half_open_probe_in_flight = False
+
+
 def _is_transient_transport_exception(exc: Exception) -> bool:
     if isinstance(
         exc,
@@ -357,6 +434,8 @@ class HttpBridgeClient:
         deadline_sec: float = 60.0,
         max_retries: int = 2,
         retry_backoff_sec: float = 0.25,
+        circuit_breaker_threshold: int = 5,
+        circuit_breaker_cooldown_sec: float = 30.0,
     ) -> None:
         parsed_base = urlsplit(base_url.rstrip("/"))
         if parsed_base.scheme not in {"http", "https"}:
@@ -370,7 +449,12 @@ class HttpBridgeClient:
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff_sec
         self._pool = _HttpConnectionPool(parsed_base, timeout_sec)
+        self._breaker = _CircuitBreaker(circuit_breaker_threshold, circuit_breaker_cooldown_sec)
         self.last_transport_telemetry: TransportTelemetry | None = None
+
+    @property
+    def circuit_breaker_state(self) -> str:
+        return self._breaker.state
 
     def _default_backoff_delay(self, attempt: int) -> float:
         base = self._retry_backoff * (2**attempt)
@@ -404,13 +488,16 @@ class HttpBridgeClient:
         headers = {
             "Accept": "application/json",
             "Connection": "keep-alive",
-            "X-Request-Id": f"{request_id_prefix}:attempt-{attempt_number}",
+            "X-Request-Id": self._request_id(request_id_prefix, attempt_number),
         }
         if body is not None:
             headers["Content-Type"] = "application/json"
         if idempotency_key is not None:
             headers["X-Idempotency-Key"] = idempotency_key
         return headers
+
+    def _request_id(self, request_id_prefix: str, attempt_number: int) -> str:
+        return f"{request_id_prefix}:attempt-{attempt_number}"
 
     def _retry_delay_for_response(
         self,
@@ -443,6 +530,7 @@ class HttpBridgeClient:
             retry_after_used=retry_after_used,
             final_status_code=final_status_code,
             error_class=error_class,
+            circuit_breaker_state=self.circuit_breaker_state,
         )
 
     def _attach_transport_telemetry(
@@ -490,6 +578,8 @@ class HttpBridgeClient:
         last_request_id = ""
 
         for attempt in range(tries):
+            request_id = self._request_id(request_id_prefix, attempt + 1)
+            last_request_id = request_id
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise self._attach_transport_telemetry(
@@ -503,6 +593,23 @@ class HttpBridgeClient:
                     error_class="timeout",
                 )
 
+            if not self._breaker.allow_request():
+                raise self._attach_transport_telemetry(
+                    _HttpTransportError(
+                        "circuit breaker open: bridge unavailable",
+                        transient=True,
+                        terminal=True,
+                        error_class="circuit_breaker",
+                    ),
+                    request_id=request_id,
+                    attempts=attempt,
+                    started_at=started_at,
+                    retried_status_codes=retried_status_codes,
+                    retry_after_used=retry_after_used,
+                    final_status_code=None,
+                    error_class="circuit_breaker",
+                )
+
             try:
                 request_timeout = min(self._timeout, remaining)
                 headers = self._build_request_headers(
@@ -511,7 +618,6 @@ class HttpBridgeClient:
                     body=body,
                     idempotency_key=idempotency_key,
                 )
-                last_request_id = headers["X-Request-Id"]
                 code, raw, response_headers = self._pool.request(
                     method,
                     target,
@@ -520,6 +626,7 @@ class HttpBridgeClient:
                     timeout_sec=request_timeout,
                 )
                 if _transient_http_code(code):
+                    self._breaker.record_failure()
                     last_exc = _HttpTransportError(
                         f"HTTP {code}: {raw}",
                         transient=True,
@@ -547,6 +654,7 @@ class HttpBridgeClient:
                         error_class="transient",
                     )
                 if not 200 <= code < 300:
+                    self._breaker.record_permanent_failure()
                     raise self._attach_transport_telemetry(
                         _HttpTransportError(
                             f"HTTP {code}: {raw}",
@@ -563,6 +671,7 @@ class HttpBridgeClient:
                     )
                 try:
                     payload = json.loads(raw)
+                    self._breaker.record_success()
                     transport = self._build_transport_telemetry(
                         request_id=last_request_id,
                         attempts=attempt + 1,
@@ -575,6 +684,7 @@ class HttpBridgeClient:
                     self.last_transport_telemetry = transport
                     return code, payload, transport
                 except json.JSONDecodeError as exc:
+                    self._breaker.record_permanent_failure()
                     raise self._attach_transport_telemetry(
                         _HttpTransportError(
                             f"invalid JSON response: {exc.msg}",
@@ -624,6 +734,10 @@ class HttpBridgeClient:
                     transient=_is_transient_transport_exception(exc),
                     error_class=error_class,
                 )
+                if last_exc.transient:
+                    self._breaker.record_failure()
+                else:
+                    self._breaker.record_permanent_failure()
                 if last_exc.transient and attempt + 1 < tries:
                     backoff = self._default_backoff_delay(attempt)
                     self._sleep_with_deadline(backoff, deadline, cause=exc)
@@ -747,4 +861,6 @@ def create_bridge_client(config: OrchestratorConfig) -> BridgeClient:
         deadline_sec=config.bridge.deadline_sec,
         max_retries=config.bridge.http_max_retries,
         retry_backoff_sec=config.bridge.http_retry_backoff_sec,
+        circuit_breaker_threshold=config.bridge.circuit_breaker_threshold,
+        circuit_breaker_cooldown_sec=config.bridge.circuit_breaker_cooldown_sec,
     )

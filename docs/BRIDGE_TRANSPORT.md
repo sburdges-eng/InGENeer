@@ -33,6 +33,12 @@
 - For HTTP **429** and **503**, a valid `Retry-After` response header overrides the normal exponential backoff. Integer-second and HTTP-date formats are supported. Invalid `Retry-After` values are ignored and the client falls back to the default bounded backoff.
 - Timeout handling is explicit at the transport layer: connect/read timeouts are surfaced as **transient transport failures**, so `verify_result` may retry them but schema/protocol mismatches still fail closed.
 - The Python HTTP client keeps a **single reusable keep-alive connection** per `HttpBridgeClient` instance. If the host closes the socket or a transient transport fault occurs, the client drops that connection and reconnects on the next attempt.
+- Each `HttpBridgeClient` instance also maintains a **simple circuit breaker**:
+  - `bridge.circuit_breaker_threshold` (default **5**) counts consecutive transient transport failures before the breaker opens.
+  - `bridge.circuit_breaker_cooldown_sec` (default **30.0** seconds) controls how long the breaker remains open before a half-open probe is allowed.
+  - State machine: `closed` → `open` after N consecutive transient failures; `open` → `half_open` after cooldown; `half_open` → `closed` on success; `half_open` → `open` on transient failure.
+  - While `open`, requests fail immediately with `circuit breaker open: bridge unavailable` and no network call is made.
+  - Permanent failures (`4xx`, `500`, invalid JSON) do **not** trip the breaker.
 - Each HTTP call also records structured transport telemetry with:
   - `request_id`
   - `attempts`
@@ -41,6 +47,7 @@
   - `retry_after_used`
   - `final_status_code`
   - `error_class`
+  - `circuit_breaker_state`
 
 ---
 
@@ -52,6 +59,7 @@ After a successful `POST /v1/execute`, the orchestrator **re-reads** `GET /v1/mo
 - On mismatch, verification fails **without** retry (deterministic failure).
 - **Verification retries** (`OrchestratorConfig.max_verification_attempts`, default **3**, with `verification_backoff_sec`) apply only when the fingerprint GET fails with a **transient** transport error (as reported by the client).
 - For baseline sync and dispatch, the orchestrator includes a `transport` object in `PhaseResult.data` so retry behavior is visible in pipeline results and downstream audit records.
+- The `transport` object is a dict view of `TransportTelemetry`, including retry history, final status, error class, and the breaker state observed when the call completed or failed.
 
 ---
 
