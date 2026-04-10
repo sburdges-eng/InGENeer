@@ -14,6 +14,7 @@ public sealed class BridgeExecutionResult
         "deterministic_key_order",
         "intent_schema_validated",
         "atomic_rollback_on_failure",
+        "strongly_typed_telemetry",
     ];
 
     [JsonPropertyName("schemaVersion")]

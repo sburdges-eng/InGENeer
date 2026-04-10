@@ -14,6 +14,14 @@ public static class IntentRouter
         "ImportLandXmlSurface",
         "CreateAlignment",
         "CreateProfile",
+        "CreateCrossSection",
+        "CreateCorridorModel",
+        "BalanceGrading",
+        "CreateRetentionPond",
+        "CreateSanitarySewerNetwork",
+        "PlacePlantingLayout",
+        "CreatePavingArea",
+        "DesignIrrigationZone",
     };
 
     /// <summary>

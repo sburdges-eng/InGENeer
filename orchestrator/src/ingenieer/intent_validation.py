@@ -11,7 +11,7 @@ from jsonschema import ValidationError
 
 from ingenieer.models import CadIntentEnvelope, IntentValidationConfig
 
-# MVP catalog — keep in sync with docs/INTENT_COMMAND_CATALOG.md
+# Intent command catalog — keep in sync with docs/INTENT_COMMAND_CATALOG.md
 ALLOWED_COMMANDS: frozenset[str] = frozenset(
     {
         "NoOp",
@@ -24,6 +24,15 @@ ALLOWED_COMMANDS: frozenset[str] = frozenset(
         "VerifySurface",
         "CreateAlignment",
         "CreateProfile",
+        "CreateCrossSection",
+        "CreateCorridorModel",
+        "BalanceGrading",
+        "CreateRetentionPond",
+        "CreateSanitarySewerNetwork",
+        "AnalyzeStormDrainage",
+        "PlacePlantingLayout",
+        "CreatePavingArea",
+        "DesignIrrigationZone",
     },
 )
 
@@ -39,11 +48,31 @@ COMMAND_RISK: dict[str, str] = {
     "VerifySurface": "low",
     "CreateAlignment": "high",
     "CreateProfile": "high",
+    "CreateCrossSection": "high",
+    "CreateCorridorModel": "high",
+    "BalanceGrading": "high",
+    "CreateRetentionPond": "high",
+    "CreateSanitarySewerNetwork": "high",
+    "AnalyzeStormDrainage": "low",
+    "PlacePlantingLayout": "high",
+    "CreatePavingArea": "high",
+    "DesignIrrigationZone": "high",
 }
+
+# Fail-fast: any desync between ALLOWED_COMMANDS and COMMAND_RISK crashes at import time.
+assert set(COMMAND_RISK) == ALLOWED_COMMANDS, (
+    f"COMMAND_RISK keys and ALLOWED_COMMANDS must match. "
+    f"Missing from COMMAND_RISK: {ALLOWED_COMMANDS - set(COMMAND_RISK)}; "
+    f"extra in COMMAND_RISK: {set(COMMAND_RISK) - ALLOWED_COMMANDS}"
+)
+assert all(v in ("low", "high") for v in COMMAND_RISK.values()), (
+    "All COMMAND_RISK values must be 'low' or 'high'"
+)
 
 
 def command_risk(command: str) -> str:
-    return COMMAND_RISK.get(command, "low")
+    """Return the risk tier for *command*. Defaults to 'high' (fail-closed) for unknown commands."""
+    return COMMAND_RISK.get(command, "high")
 
 
 def default_intent_schema_path() -> Path:

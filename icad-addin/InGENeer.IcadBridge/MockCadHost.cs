@@ -85,6 +85,62 @@ public sealed class MockCadHost : ICadHostExecutor
                 t["pvi_count"] = 3;
                 t["elevation_range"] = new[] { 100.0, 105.0 };
             }),
+            "CreateCrossSection" => BridgeExecutionResult.Ok(intent, $"CreateCrossSection:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["station_count"] = 5;
+            }),
+            "CreateCorridorModel" => BridgeExecutionResult.Ok(intent, $"CreateCorridorModel:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["corridor_length"] = 538.52;
+            }),
+            "BalanceGrading" => BridgeExecutionResult.Ok(intent, $"BalanceGrading:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["cut_volume"] = 1250.0;
+                t["fill_volume"] = 1245.0;
+                t["net_volume"] = 5.0;
+                t["balanced"] = true;
+            }),
+            "CreateRetentionPond" => BridgeExecutionResult.Ok(intent, $"CreateRetentionPond:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["pond_volume"] = 4500.0;
+                t["surface_area"] = 12000.0;
+            }),
+            "CreateSanitarySewerNetwork" => BridgeExecutionResult.Ok(intent, $"CreateSanitarySewerNetwork:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["structure_count"] = 2;
+                t["total_pipe_length"] = 250.0;
+            }),
+            "AnalyzeStormDrainage" => BridgeExecutionResult.Ok(intent, $"AnalyzeStormDrainage:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["peak_discharge"] = 12.5;
+                t["max_velocity"] = 4.2;
+                t["capacity_exceeded"] = false;
+            }),
+            "PlacePlantingLayout" => BridgeExecutionResult.Ok(intent, $"PlacePlantingLayout:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["plant_count"] = 2;
+                t["canopy_coverage_area"] = 2513.27;
+            }),
+            "CreatePavingArea" => BridgeExecutionResult.Ok(intent, $"CreatePavingArea:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["paving_area"] = 2500.0;
+                t["perimeter_length"] = 200.0;
+            }),
+            "DesignIrrigationZone" => BridgeExecutionResult.Ok(intent, $"DesignIrrigationZone:{mode}", t =>
+            {
+                AddModeTelemetry(t);
+                t["head_count"] = 2;
+                t["total_flow_gpm"] = 12.4;
+                t["pipe_length"] = 35.0;
+            }),
             _ => BridgeExecutionResult.Fail(intent, $"unknown command: {intent.Command}"),
         };
     }

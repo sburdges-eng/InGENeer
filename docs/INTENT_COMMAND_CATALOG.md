@@ -242,7 +242,7 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
   "profile_name": "Finished Grade",
   "pvi_data": [
     {"station": 0.0, "elevation": 100.0},
-    {"station": 250.0, "elevation": 105.0},
+    {"station": 250.0, "elevation": 105.0, "curve_length": 100.0},
     {"station": 538.52, "elevation": 102.0}
   ],
   "layer": "C-ROAD-PROF"
@@ -256,6 +256,8 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
 | `pvi_data` | `array of PVI objects` | yes | Minimum 2 PVIs. Stations must be monotonically increasing. |
 | `pvi_data[].station` | `number` | yes | Station along the parent alignment. |
 | `pvi_data[].elevation` | `number` | yes | Elevation at this PVI. |
+| `pvi_data[].curve_length` | `number` | no | Length of vertical curve centered on this PVI. |
+| `pvi_data[].k_value` | `number` | no | K-value for vertical curve (rate of grade change). Alternative to `curve_length`. |
 | `layer` | `string` | yes | Target CAD layer name. |
 
 **Return data** (in `telemetry` of `BridgeExecutionResult`):
@@ -272,7 +274,412 @@ These intents represent civil/survey drawing primitives. The orchestrator valida
 | `pvi_count` | `integer` | Number of PVIs in the profile. |
 | `elevation_range` | `[number, number]` | `[min_elevation, max_elevation]` across all PVIs. |
 
-**Design note:** Profiles reference alignments by `alignment_name`, establishing the horizontal-then-vertical civil design workflow. The PVI array uses structured objects (station + elevation) rather than flat coordinate tuples, exercising the bridge's nested parameter handling. Vertical curve geometry (K-values, curve lengths) is a future extension to the PVI objects.
+**Design note:** Profiles reference alignments by `alignment_name`, establishing the horizontal-then-vertical civil design workflow. The PVI array uses structured objects (station + elevation) rather than flat coordinate tuples, exercising the bridge's nested parameter handling.
+
+### CreateCrossSection
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host defines cross-section templates at specific stations along an alignment. |
+
+**Parameters:**
+
+```json
+{
+  "alignment_name": "Main St CL",
+  "profile_name": "Finished Grade",
+  "template_name": "Standard Road",
+  "stations": [0.0, 50.0, 100.0, 250.0, 500.0],
+  "layer": "C-ROAD-XSEC"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `alignment_name` | `string` | yes | Name of the parent horizontal alignment. |
+| `profile_name` | `string` | yes | Name of the vertical profile to follow. |
+| `template_name` | `string` | yes | Name of the cross-section template to apply. |
+| `stations` | `array of numbers` | yes | List of stations where cross-sections should be generated. |
+| `layer` | `string` | yes | Target CAD layer name. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "station_count": 5
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `station_count` | `integer` | Number of stations processed. |
+
+**Design note:** Cross-sections bridge the gap between 2D alignment/profile and a 3D corridor model.
+
+### CreateCorridorModel
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host combines alignment, profile, and cross-section data into a 3D corridor object. |
+
+**Parameters:**
+
+```json
+{
+  "name": "Phase 1 Road",
+  "alignment_name": "Main St CL",
+  "profile_name": "Finished Grade",
+  "layer": "C-ROAD-CORR"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `name` | `string` | yes | Unique name for the corridor model. |
+| `alignment_name` | `string` | yes | Name of the baseline horizontal alignment. |
+| `profile_name` | `string` | yes | Name of the vertical profile baseline. |
+| `layer` | `string` | yes | Target CAD layer for the corridor geometry. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "corridor_length": 538.52
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `corridor_length` | `number` | Total 3D length of the generated corridor. |
+
+**Design note:** The final stage of the civil design pipeline. Corridors are high-complexity objects that typically result in significant document mutations.
+
+### BalanceGrading
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host adjusts a proposed grading surface to balance cut and fill volumes against an existing ground surface. |
+
+**Parameters:**
+
+```json
+{
+  "existing_surface": "Existing Ground",
+  "proposed_surface": "Proposed Grade",
+  "tolerance": 10.0,
+  "shrink_swell_factor": 1.15
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `existing_surface` | `string` | yes | Name of the base surface to compare against. |
+| `proposed_surface` | `string` | yes | Name of the surface to modify for balance. |
+| `tolerance` | `number` | yes | Acceptable net volume difference (cubic units). |
+| `shrink_swell_factor` | `number` | no | Material expansion/contraction factor. Defaults to `1.0`. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "cut_volume": 1250.0,
+  "fill_volume": 1245.0,
+  "net_volume": 5.0,
+  "balanced": true
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `cut_volume` | `number` | Total cut volume. |
+| `fill_volume` | `number` | Total fill volume (adjusted by shrink/swell). |
+| `net_volume` | `number` | Net volume (cut - fill). |
+| `balanced` | `boolean` | True if `abs(net_volume) <= tolerance`. |
+
+**Design note:** Surface balancing is an iterative optimization task. The host is responsible for the geometry adjustment; the orchestrator specifies the target state.
+
+### CreateRetentionPond
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host generates grading geometry (breaklines/surface) for a retention pond based on a given outline. |
+
+**Parameters:**
+
+```json
+{
+  "outline_polyline_id": "pond-limit-01",
+  "base_elevation": 95.0,
+  "side_slope": 3.0,
+  "berm_width": 10.0,
+  "target_surface": "Existing Ground",
+  "layer": "C-TOPO-POND"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `outline_polyline_id` | `string` | yes | Identifier (name/handle) of the polyline defining the pond top or bottom. |
+| `base_elevation` | `number` | yes | Bottom elevation of the pond. |
+| `side_slope` | `number` | yes | Ratio (H:V, e.g. `3.0` for 3:1). |
+| `berm_width` | `number` | no | Width of the berm at the top of the pond. |
+| `target_surface` | `string` | yes | Surface to tie the pond grading into. |
+| `layer` | `string` | yes | Target CAD layer for pond geometry. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "pond_volume": 4500.0,
+  "surface_area": 12000.0
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `pond_volume` | `number` | Total storage volume of the pond. |
+| `surface_area` | `number` | Total footprint area of the pond grading. |
+
+**Design note:** Pond design combines horizontal layout with vertical constraints.
+
+### CreateSanitarySewerNetwork
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host creates a gravity-fed pipe network (pipes and manholes) referencing a horizontal alignment. |
+
+**Parameters:**
+
+```json
+{
+  "network_name": "Phase 1 Sewer",
+  "alignment_name": "Main St CL",
+  "structures": [
+    {"station": 0.0, "type": "Manhole 48in", "rim_elevation": 100.0, "invert_elevation": 92.0},
+    {"station": 250.0, "type": "Manhole 48in", "rim_elevation": 105.0, "invert_elevation": 91.5}
+  ],
+  "pipe_material": "PVC",
+  "pipe_diameter": 8.0,
+  "layer": "C-SSWR-NETW"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `network_name` | `string` | yes | Unique identifier for the network. |
+| `alignment_name` | `string` | yes | Parent alignment for stationing. |
+| `structures` | `array of structure objects` | yes | Nodes in the network. |
+| `pipe_material` | `string` | yes | Material specification for pipes between structures. |
+| `pipe_diameter` | `number` | yes | Internal pipe diameter (inches). |
+| `layer` | `string` | yes | Target CAD layer name. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "structure_count": 2,
+  "total_pipe_length": 250.0
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `structure_count` | `integer` | Number of manholes/structures created. |
+| `total_pipe_length` | `number` | Total length of all pipes in the network. |
+
+**Design note:** Utility modeling requires strict vertical (invert) and horizontal (station) alignment synchronization.
+
+### AnalyzeStormDrainage
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `low` |
+| **Execution** | Host performs hydraulic analysis on a pipe network and returns performance metrics. Read-only. |
+
+**Parameters:**
+
+```json
+{
+  "network_name": "Phase 1 Storm",
+  "design_storm_years": 25,
+  "runoff_coefficient": 0.85
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `network_name` | `string` | yes | Name of the network to analyze. |
+| `design_storm_years` | `integer` | yes | Return period for the design storm. |
+| `runoff_coefficient` | `number` | yes | Weighted C-factor for the drainage area. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "peak_discharge": 12.5,
+  "max_velocity": 4.2,
+  "capacity_exceeded": false
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `peak_discharge` | `number` | Calculated peak flow at the outlet (cfs). |
+| `max_velocity` | `number` | Highest flow velocity in the network (fps). |
+| `capacity_exceeded` | `boolean` | True if any pipe segment's capacity is exceeded by the peak flow. |
+
+**Design note:** Read-only analysis command. No confirmation token required.
+
+---
+
+## Landscape Architecture commands
+
+These intents represent landscape architecture primitives for planting, hardscape, and irrigation.
+
+### PlacePlantingLayout
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host places plant symbols (blocks) at specified locations with metadata for growth and maintenance. |
+
+**Parameters:**
+
+```json
+{
+  "species_id": "QUERCUS_AGRIFOLIA",
+  "points": [
+    {"location": [1000.0, 2000.0, 0.0], "rotation": 45.0, "scale": 1.2},
+    {"location": [1050.0, 2020.0, 0.0], "rotation": 90.0, "scale": 1.0}
+  ],
+  "mature_spread": 40.0,
+  "layer": "L-PLNT-TREE",
+  "container_size": "24 inch box"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `species_id` | `string` | yes | Botanical or common name ID for the plant. |
+| `points` | `array of objects` | yes | Placement locations and geometry overrides. |
+| `points[].location` | `[number, number, number]` | yes | 3D insertion point. |
+| `points[].rotation` | `number` | no | Rotation in degrees. |
+| `points[].scale` | `number` | no | Scale factor for the symbol. |
+| `mature_spread` | `number` | yes | Diameter of mature canopy (feet/meters) for clash detection. |
+| `layer` | `string` | yes | Target CAD layer name. |
+| `container_size` | `string` | no | Specified planting size (e.g. "5 gallon"). |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "plant_count": 2,
+  "canopy_coverage_area": 2513.27
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `plant_count` | `integer` | Total number of plants placed in the batch. |
+| `canopy_coverage_area` | `number` | Total area covered by mature canopies (calculated by host). |
+
+**Design note:** Batch placement minimizes transaction overhead. Canopy coverage is calculated by the host and returned for environmental/SIM analysis.
+
+### CreatePavingArea
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host creates a parametric hardscape area (hatched polyline or slab) with material and drainage properties. |
+
+**Parameters:**
+
+```json
+{
+  "boundary_points": [[1000.0, 2000.0, 100.0], [1050.0, 2000.0, 100.0], [1050.0, 2050.0, 100.0], [1000.0, 2050.0, 100.0]],
+  "material_type": "Permeable Pavers",
+  "subbase_depth": 1.5,
+  "permeability_coefficient": 0.85,
+  "layer": "L-HRDS-PAVE"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `boundary_points` | `array of [number, number, number]` | yes | Closed boundary coordinates. |
+| `material_type` | `string` | yes | Hardscape material specification. |
+| `subbase_depth` | `number` | yes | Depth of sub-base material (feet/meters). |
+| `permeability_coefficient` | `number` | yes | Runoff coefficient (0.0 to 1.0). |
+| `layer` | `string` | yes | Target CAD layer name. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "paving_area": 2500.0,
+  "perimeter_length": 200.0
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `paving_area` | `number` | Total calculated surface area. |
+| `perimeter_length` | `number` | Total calculated boundary perimeter. |
+
+**Design note:** Hardscape areas often drive drainage calculations. The `permeability_coefficient` is critical for SIM integration.
+
+### DesignIrrigationZone
+
+| Field | Value |
+|-------|-------|
+| **Risk** | `high` |
+| **Execution** | Host generates an irrigation zone layout including heads, valves, and lateral piping. |
+
+**Parameters:**
+
+```json
+{
+  "zone_id": "HYDROZONE-A",
+  "heads": [
+    {"location": [1000.0, 2000.0, 0.0], "type": "Rotor", "radius": 35.0},
+    {"location": [1035.0, 2000.0, 0.0], "type": "Rotor", "radius": 35.0}
+  ],
+  "pipe_material": "PVC Sch 40",
+  "target_psi": 55.0,
+  "layer": "L-IRRG-ZONE"
+}
+```
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `zone_id` | `string` | yes | Unique identifier for the irrigation hydrozone. |
+| `heads` | `array of objects` | yes | Irrigation head locations and properties. |
+| `pipe_material` | `string` | yes | Pipe material for lateral lines. |
+| `target_psi` | `number` | yes | Design operating pressure at the head. |
+| `layer` | `string` | yes | Target CAD layer name. |
+
+**Return data** (in `telemetry` of `BridgeExecutionResult`):
+
+```json
+{
+  "head_count": 2,
+  "total_flow_gpm": 12.4,
+  "pipe_length": 35.0
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `head_count` | `integer` | Total number of irrigation heads in the zone. |
+| `total_flow_gpm` | `number` | Sum of flow rates for all heads in the zone. |
+| `pipe_length` | `number` | Calculated total length of lateral piping. |
+
+**Design note:** Irrigation zones are functional engineering units. The host calculates hydraulic requirements (GPM, pipe length) and returns them in telemetry.
 
 ---
 
