@@ -7,6 +7,16 @@ namespace InGENeer.IcadBridge;
 /// </summary>
 public sealed class BridgeExecutionResult
 {
+    /// <summary>Must match Python <c>BridgeExecutionResult.invariants</c> defaults for wire validation.</summary>
+    private static readonly List<string> DefaultInvariants =
+    [
+        "schema_version_required",
+        "deterministic_key_order",
+        "intent_schema_validated",
+        "atomic_rollback_on_failure",
+        "strongly_typed_telemetry",
+    ];
+
     [JsonPropertyName("schemaVersion")]
     public string SchemaVersion { get; set; } = "1.0.0";
 
@@ -35,6 +45,7 @@ public sealed class BridgeExecutionResult
             Stdout = stdout,
             ErrorTraceback = null,
             Telemetry = telemetry,
+            Invariants = [.. DefaultInvariants],
         };
     }
 
@@ -46,6 +57,7 @@ public sealed class BridgeExecutionResult
             Stdout = "",
             ErrorTraceback = message,
             Telemetry = new Dictionary<string, object?> { ["intentId"] = intent.IntentId, ["command"] = intent.Command },
+            Invariants = [.. DefaultInvariants],
         };
     }
 }

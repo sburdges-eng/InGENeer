@@ -13,7 +13,8 @@ from typing import Any, Protocol
 
 from ingenieer.audit import AuditLogger
 from ingenieer.bridge_client import BridgeClient, create_bridge_client
-from ingenieer.intent_validation import collect_intent_validation_errors
+from ingenieer.icad_bridge_transport import run_dispatch_execute, run_sync_baseline
+from ingenieer.intent_validation import collect_intent_validation_errors, command_risk
 from ingenieer.models import (
     CadIntentEnvelope,
     OrchestratorConfig,
@@ -21,7 +22,7 @@ from ingenieer.models import (
     PhaseResult,
     PipelineResult,
 )
-
+from ingenieer.wire import BridgeExecutionResult
 
 PHASE_ORDER = ("validate_intent", "sync_baseline", "dispatch_execute", "verify_result")
 
@@ -63,7 +64,7 @@ class _ValidateIntentPhase:
 
 
 class _SyncBaselinePhase:
-    """Compare orchestrator model fingerprint with live CAD session (via bridge)."""
+    """GET /v1/model-fingerprint + stale guard (see icad_bridge_transport)."""
 
     def __init__(self, bridge: BridgeClient) -> None:
         self._bridge = bridge
@@ -73,36 +74,14 @@ class _SyncBaselinePhase:
         return True, []
 
     def run(self, ctx: OrchestratorContext) -> PhaseResult:
-        try:
-            observed = self._bridge.get_model_fingerprint()
-        except Exception as exc:  # noqa: BLE001 — surface as phase failure
-            return PhaseResult(
-                phase=self.name,
-                success=False,
-                message=f"Baseline sync failed: {exc}",
-                data={},
-            )
-        ctx.model_fingerprint_observed = observed
-        if ctx.intent and ctx.intent.modelFingerprintExpected:
-            if observed != ctx.intent.modelFingerprintExpected:
-                return PhaseResult(
-                    phase=self.name,
-                    success=False,
-                    message="Model fingerprint mismatch (stale document)",
-                    data={
-                        "expected": ctx.intent.modelFingerprintExpected,
-                        "observed": observed,
-                    },
-                )
-        return PhaseResult(
-            phase=self.name,
-            success=True,
-            message="Baseline sync OK",
-            data={"modelFingerprintObserved": observed},
-        )
+        pr = run_sync_baseline(self._bridge, ctx)
+        pr.phase = self.name
+        return pr
 
 
 class _DispatchExecutePhase:
+    """POST /v1/execute (see icad_bridge_transport)."""
+
     def __init__(self, bridge: BridgeClient) -> None:
         self._bridge = bridge
         self.name = "dispatch_execute"
@@ -113,35 +92,9 @@ class _DispatchExecutePhase:
         return True, []
 
     def run(self, ctx: OrchestratorContext) -> PhaseResult:
-        assert ctx.intent is not None
-        try:
-            br = self._bridge.execute_intent(ctx.intent)
-        except Exception as exc:  # noqa: BLE001
-            return PhaseResult(
-                phase=self.name,
-                success=False,
-                message=f"Dispatch exception: {exc}",
-                data={},
-            )
-        payload = br.model_dump(mode="json")
-        ctx.bridge_execution = payload
-        ack: dict[str, Any] = {
-            "status": "executed" if br.success else "failed",
-            "command": ctx.intent.command,
-        }
-        if not br.success:
-            return PhaseResult(
-                phase=self.name,
-                success=False,
-                message=br.error_traceback or "bridge reported execution failure",
-                data={"dispatch_ack": ack, "bridge_execution": payload},
-            )
-        return PhaseResult(
-            phase=self.name,
-            success=True,
-            message="Dispatch completed",
-            data={"dispatch_ack": ack, "bridge_execution": payload},
-        )
+        pr = run_dispatch_execute(self._bridge, ctx)
+        pr.phase = self.name
+        return pr
 
 
 class _VerifyResultPhase:
@@ -154,25 +107,38 @@ class _VerifyResultPhase:
         return True, []
 
     def run(self, ctx: OrchestratorContext) -> PhaseResult:
-        be = ctx.bridge_execution
-        if not be:
+        be_payload = ctx.bridge_execution
+        if not be_payload:
             return PhaseResult(
                 phase=self.name,
                 success=False,
                 message="Missing bridge execution result (dispatch did not populate context)",
                 data={},
             )
-        if not be.get("success"):
+
+        # 1. Structural Hardening: Validate telemetry against strict schema
+        try:
+            be = BridgeExecutionResult.model_validate(be_payload)
+            # This triggers command-specific telemetry validation
+            be.validate_telemetry()
+        except Exception as exc:
             return PhaseResult(
                 phase=self.name,
                 success=False,
-                message=be.get("error_traceback") or "verification failed (bridge success=false)",
+                message=f"Telemetry schema validation failed: {exc}",
+                data={"verification": {"status": "failed", "source": "telemetry_schema"}},
+            )
+
+        if not be.success:
+            return PhaseResult(
+                phase=self.name,
+                success=False,
+                message=be.error_traceback or "verification failed (bridge success=false)",
                 data={"verification": {"status": "failed", "source": "bridge_execution"}},
             )
+
         assert ctx.intent is not None
-        telemetry = be.get("telemetry")
-        if not isinstance(telemetry, dict):
-            telemetry = {}
+        telemetry = be.telemetry
 
         max_attempts = self._config.max_verification_attempts
         backoff = self._config.verification_backoff_sec
@@ -181,6 +147,27 @@ class _VerifyResultPhase:
             vr = self._bridge.verify_post_dispatch(ctx.intent, telemetry)
             last_vr = vr
             if vr.success:
+                # 2. Adversarial Hardening: Detect Silent Mutation Failures
+                # High-risk execute should change the fingerprint.
+                if (
+                    ctx.intent.executionMode == "execute"
+                    and command_risk(ctx.intent.command) == "high"
+                    and ctx.model_fingerprint_observed is not None
+                    and vr.observed_fingerprint == ctx.model_fingerprint_observed
+                ):
+                    return PhaseResult(
+                        phase=self.name,
+                        success=False,
+                        message="Silent mutation failure: fingerprint unchanged after high-risk execute",
+                        data={
+                            "verification": {
+                                "status": "silent_mutation_failure",
+                                "source": "host_fingerprint",
+                                "fingerprint": vr.observed_fingerprint,
+                            }
+                        },
+                    )
+
                 return PhaseResult(
                     phase=self.name,
                     success=True,

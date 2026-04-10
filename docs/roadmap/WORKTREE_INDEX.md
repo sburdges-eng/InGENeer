@@ -1,6 +1,20 @@
 # InGENeer roadmap branches and worktrees
 
-Git root for this tree is **`/Users/seanburdges/Dev/InGENeer`** (this repository). The parent **`/Users/seanburdges/Dev`** monorepo does not track `InGENeer/`; worktrees are extra checkouts of **this** repo.
+Git root is **this repository** (`git rev-parse --show-toplevel`). If the clone lives under **`~/Dev/InGENeer`**, that parent folder is a separate layout; see [PARENT_DEV_MONOREPO.md](../PARENT_DEV_MONOREPO.md). Worktrees below are extra checkouts of **this** repo.
+
+## Scoped IDE workspace
+
+Open **[InGENeer.code-workspace](../../InGENeer.code-workspace)** in Cursor/VS Code to limit search and watchers to orchestrator, `icad-addin`, schemas, docs, AutonomAtIon, and scripts (same idea as `~/Dev/workspaces/*.code-workspace` for sibling projects).
+
+## Bootstrap script
+
+From the repo root, after creating the roadmap branches locally:
+
+```bash
+./scripts/bootstrap_worktrees.sh
+```
+
+Override output base directory: `INGENEER_WORKTREE_BASE=/path/to/wt ./scripts/bootstrap_worktrees.sh`.
 
 ## Branch layout
 
@@ -36,7 +50,7 @@ Model × language rules: [MODEL_LANGUAGE_ROUTING.md](../MODEL_LANGUAGE_ROUTING.m
 
 ## Local worktrees (created alongside this doc)
 
-Paths under `/Users/seanburdges/Dev-wt/`:
+Default base directory: **`$HOME/Dev-wt`** (override with `INGENEER_WORKTREE_BASE` when running `bootstrap_worktrees.sh`):
 
 | Branch | Worktree directory |
 |--------|-------------------|
@@ -49,18 +63,18 @@ Paths under `/Users/seanburdges/Dev-wt/`:
 | `ingenieer/roadmap/goal-2/codex` | `ingenieer-g2-codex` |
 | `ingenieer/roadmap/goal-2/gemini` | `ingenieer-g2-gemini` |
 
-## Recreate worktrees (if removed)
+## Recreate worktrees manually (if removed)
 
-From `/Users/seanburdges/Dev/InGENeer`:
+Equivalent to `bootstrap_worktrees.sh`; adjust `Dev-wt` to your layout:
 
 ```bash
-mkdir -p /Users/seanburdges/Dev-wt
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g1-cloud    ingenieer/roadmap/goal-1/cloud-agent
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g1-claude   ingenieer/roadmap/goal-1/claude-code
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g1-codex    ingenieer/roadmap/goal-1/codex
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g1-gemini  ingenieer/roadmap/goal-1/gemini
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g2-cloud    ingenieer/roadmap/goal-2/cloud-agent
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g2-claude   ingenieer/roadmap/goal-2/claude-code
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g2-codex    ingenieer/roadmap/goal-2/codex
-git worktree add /Users/seanburdges/Dev-wt/ingenieer-g2-gemini  ingenieer/roadmap/goal-2/gemini
+mkdir -p "$HOME/Dev-wt"
+git worktree add "$HOME/Dev-wt/ingenieer-g1-cloud"    ingenieer/roadmap/goal-1/cloud-agent
+git worktree add "$HOME/Dev-wt/ingenieer-g1-claude"   ingenieer/roadmap/goal-1/claude-code
+git worktree add "$HOME/Dev-wt/ingenieer-g1-codex"    ingenieer/roadmap/goal-1/codex
+git worktree add "$HOME/Dev-wt/ingenieer-g1-gemini"  ingenieer/roadmap/goal-1/gemini
+git worktree add "$HOME/Dev-wt/ingenieer-g2-cloud"    ingenieer/roadmap/goal-2/cloud-agent
+git worktree add "$HOME/Dev-wt/ingenieer-g2-claude"   ingenieer/roadmap/goal-2/claude-code
+git worktree add "$HOME/Dev-wt/ingenieer-g2-codex"    ingenieer/roadmap/goal-2/codex
+git worktree add "$HOME/Dev-wt/ingenieer-g2-gemini"  ingenieer/roadmap/goal-2/gemini
 ```

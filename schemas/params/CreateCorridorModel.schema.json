@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/CreateCorridorModel.schema.json",
+  "title": "CreateCorridorModelParameters",
+  "type": "object",
+  "required": ["name", "alignment_name", "profile_name", "layer"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "alignment_name": { "type": "string", "minLength": 1 },
+    "profile_name": { "type": "string", "minLength": 1 },
+    "layer": { "type": "string", "minLength": 1 }
+  }
+}

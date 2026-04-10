@@ -1,7 +1,6 @@
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
 from ingenieer.audit import AuditLogger
 from ingenieer.models import CadIntentEnvelope, OrchestratorConfig

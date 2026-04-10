@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/DrawPolylineFromCoordinates.schema.json",
+  "title": "DrawPolylineFromCoordinatesParameters",
+  "type": "object",
+  "required": ["points", "layer", "closed"],
+  "properties": {
+    "points": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          { "type": "number" },
+          { "type": "number" },
+          { "type": "number" }
+        ],
+        "minItems": 3,
+        "maxItems": 3
+      }
+    },
+    "layer": { "type": "string", "minLength": 1 },
+    "closed": { "type": "boolean" },
+    "color": { "type": "string" }
+  }
+}

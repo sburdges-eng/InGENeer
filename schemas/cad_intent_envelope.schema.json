@@ -17,7 +17,28 @@
     },
     "command": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "enum": [
+        "NoOp",
+        "PingHost",
+        "GetModelFingerprint",
+        "HighRiskStub",
+        "DrawPolylineFromCoordinates",
+        "CreatePointBlocks",
+        "ImportLandXmlSurface",
+        "VerifySurface",
+        "CreateAlignment",
+        "CreateProfile",
+        "CreateCrossSection",
+        "CreateCorridorModel",
+        "BalanceGrading",
+        "CreateRetentionPond",
+        "CreateSanitarySewerNetwork",
+        "AnalyzeStormDrainage",
+        "PlacePlantingLayout",
+        "CreatePavingArea",
+        "DesignIrrigationZone"
+      ]
     },
     "parameters": {
       "type": "object"

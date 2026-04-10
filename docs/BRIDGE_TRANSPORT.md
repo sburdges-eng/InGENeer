@@ -70,6 +70,8 @@ After a successful `POST /v1/execute`, the orchestrator **re-reads** `GET /v1/mo
 
 **Request:** `Content-Type: application/json` — JSON object matching `CadIntentEnvelope` (same keys as Pydantic `model_dump()`, e.g. `schemaVersion`, `intentId`, `command`, `parameters`, `executionMode`, optional `humanConfirmationToken` / `humanConfirmationId`, `targetDocumentRef`, `modelFingerprintExpected`).
 
+**Raw JSON vs Python defaults:** If a payload is validated **only** against the intent JSON Schema (no Pydantic), it **must** include `schemaVersion` (`1.1.0`) and `executionMode` — both are required in [`schemas/cad_intent_envelope.schema.json`](../schemas/cad_intent_envelope.schema.json). The Python orchestrator CLI parses with `CadIntentEnvelope.model_validate` first, which defaults `schemaVersion` to `1.1.0` and `executionMode` to `execute` before JSON Schema runs in `validate_intent`.
+
 **Execution modes:** When `executionMode` is `dry_run` or `preview`, the host must **not** commit document mutations; still return success telemetry including `modelFingerprintAfter` unchanged. When `execute`, the host may mutate and must set `modelFingerprintAfter` to the post-commit document fingerprint.
 
 **Response:** `200` and JSON object matching `BridgeExecutionResult`:

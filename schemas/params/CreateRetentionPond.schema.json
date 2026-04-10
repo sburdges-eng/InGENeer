@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/CreateRetentionPond.schema.json",
+  "title": "CreateRetentionPondParameters",
+  "type": "object",
+  "required": ["outline_polyline_id", "base_elevation", "side_slope", "target_surface", "layer"],
+  "properties": {
+    "outline_polyline_id": { "type": "string", "minLength": 1 },
+    "base_elevation": { "type": "number" },
+    "side_slope": { "type": "number", "minimum": 0 },
+    "berm_width": { "type": "number", "minimum": 0 },
+    "target_surface": { "type": "string", "minLength": 1 },
+    "layer": { "type": "string", "minLength": 1 }
+  }
+}

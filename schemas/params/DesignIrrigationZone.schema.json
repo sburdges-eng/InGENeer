@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/DesignIrrigationZone.schema.json",
+  "title": "DesignIrrigationZoneParameters",
+  "type": "object",
+  "required": ["zone_id", "heads", "pipe_material", "target_psi", "layer"],
+  "properties": {
+    "zone_id": { "type": "string", "minLength": 1 },
+    "heads": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["location", "type", "radius"],
+        "properties": {
+          "location": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "number" },
+              { "type": "number" },
+              { "type": "number" }
+            ],
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "type": { "type": "string" },
+          "radius": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "pipe_material": { "type": "string" },
+    "target_psi": { "type": "number", "minimum": 0 },
+    "layer": { "type": "string", "minLength": 1 }
+  }
+}

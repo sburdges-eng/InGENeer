@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/CreateSanitarySewerNetwork.schema.json",
+  "title": "CreateSanitarySewerNetworkParameters",
+  "type": "object",
+  "required": ["network_name", "alignment_name", "structures", "pipe_material", "pipe_diameter", "layer"],
+  "properties": {
+    "network_name": { "type": "string", "minLength": 1 },
+    "alignment_name": { "type": "string", "minLength": 1 },
+    "structures": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["station", "type", "rim_elevation", "invert_elevation"],
+        "properties": {
+          "station": { "type": "number" },
+          "type": { "type": "string" },
+          "rim_elevation": { "type": "number" },
+          "invert_elevation": { "type": "number" }
+        }
+      }
+    },
+    "pipe_material": { "type": "string" },
+    "pipe_diameter": { "type": "number", "minimum": 0 },
+    "layer": { "type": "string", "minLength": 1 }
+  }
+}

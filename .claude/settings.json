@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=\"$CLAUDE_FILE_PATH\"; if [ -n \"$file\" ] && echo \"$file\" | grep -q '\\.py$' && echo \"$file\" | grep -q 'orchestrator'; then cd /Users/seanburdges/Dev/InGENeer/orchestrator && ruff format --quiet \"$file\" 2>/dev/null && ruff check --fix --quiet \"$file\" 2>/dev/null; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=\"$CLAUDE_FILE_PATH\"; schema='/Users/seanburdges/Dev/InGENeer/schemas/cad_intent_envelope.schema.json'; models='/Users/seanburdges/Dev/InGENeer/orchestrator/src/ingenieer/models.py'; if [ \"$file\" = \"$schema\" ] || [ \"$file\" = \"$models\" ]; then schema_ver=$(python3 -c \"import json; print(json.load(open('$schema'))['properties']['schemaVersion']['const'])\" 2>/dev/null); model_ver=$(grep -oP 'INTENT_SCHEMA_VERSION.*?\"\\K[^\"]+' \"$models\" 2>/dev/null || grep -o 'schemaVersion.*Literal\\[.\\\"[^\\\"]*' \"$models\" 2>/dev/null); if [ -n \"$schema_ver\" ] && [ -n \"$model_ver\" ] && [ \"$schema_ver\" != \"$model_ver\" ]; then echo \"WARNING: Schema version mismatch! JSON=$schema_ver vs models.py=$model_ver — update both together per LAYERED_PRACTICE_PLAYBOOK.md\" >&2; fi; fi"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$CLAUDE_FILE_PATH\" | grep -qE '\\.env($|\\.)' && ! echo \"$CLAUDE_FILE_PATH\" | grep -q '.example'; then echo 'BLOCK: .env files with credentials cannot be edited. Use .env.example.' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

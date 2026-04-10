@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/CreateAlignment.schema.json",
+  "title": "CreateAlignmentParameters",
+  "type": "object",
+  "required": ["name", "points", "start_station", "layer"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "points": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          { "type": "number" },
+          { "type": "number" },
+          { "type": "number" }
+        ],
+        "minItems": 3,
+        "maxItems": 3
+      }
+    },
+    "start_station": { "type": "number" },
+    "layer": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "enum": ["centerline", "offset", "curb"] }
+  }
+}

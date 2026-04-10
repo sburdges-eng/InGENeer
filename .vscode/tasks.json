@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "orchestrator: ruff check",
+      "type": "shell",
+      "command": "ruff check src tests",
+      "options": {
+        "cwd": "${workspaceFolder}/orchestrator"
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "orchestrator: pytest",
+      "type": "shell",
+      "command": "python -m pytest -q",
+      "options": {
+        "cwd": "${workspaceFolder}/orchestrator"
+      },
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "icad-addin: dotnet build (Release)",
+      "type": "shell",
+      "command": "dotnet build icad-addin/InGENeer.IcadAddin.slnx -c Release",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    }
+  ]
+}

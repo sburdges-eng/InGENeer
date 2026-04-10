@@ -21,7 +21,7 @@ You are editing artifacts governed by **domain isolation**: orchestrator code va
 
 1. **No invented proprietary CAD APIs** (Carlson, ITC/IntelliCAD, Autodesk, etc.). Use `TODO` + official doc snippet if unsure.
 2. **Do not remove** error handling, logging, fingerprint/verification gates, or audit behavior to "clean up" code.
-3. **Intent contract:** `schemas/cad_intent_envelope.schema.json` must stay aligned with `CadIntentEnvelope` and [docs/INTENT_COMMAND_CATALOG.md](docs/INTENT_COMMAND_CATALOG.md); bump intent `schemaVersion` on breaking envelope changes.
+3. **Intent contract:** `schemas/cad_intent_envelope.schema.json` must stay aligned with `CadIntentEnvelope` and [docs/INTENT_COMMAND_CATALOG.md](docs/INTENT_COMMAND_CATALOG.md); bump intent `schemaVersion` on breaking envelope changes. **Current intent envelope version is `1.1.0`** (includes `executionMode`; distinct from `ingenieer.contracts.SCHEMA_VERSION`).
 4. **Wire contract:** `ingenieer.contracts.SCHEMA_VERSION` is separate from intent schema—bump when outer contract shape breaks.
 5. **Orchestrator phases:** `validate_intent` → `sync_baseline` → `dispatch_execute` → `verify_result` ([orchestrator/src/ingenieer/orchestrator.py](orchestrator/src/ingenieer/orchestrator.py)).
 

@@ -1,0 +1,33 @@
+# InGENeer / AutonomAtIon — shared editor defaults (Python, C#, docs, JSON, shell).
+# See docs/WORKSPACE_STANDARDS.md for how this maps to CONTRIBUTING and architecture rules.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.cs]
+indent_size = 4
+
+[*.csproj]
+indent_size = 2
+
+[*.slnx]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+[*.sh]
+indent_size = 4

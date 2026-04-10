@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/BalanceGrading.schema.json",
+  "title": "BalanceGradingParameters",
+  "type": "object",
+  "required": ["existing_surface", "proposed_surface", "tolerance"],
+  "properties": {
+    "existing_surface": { "type": "string", "minLength": 1 },
+    "proposed_surface": { "type": "string", "minLength": 1 },
+    "tolerance": { "type": "number", "minimum": 0 },
+    "shrink_swell_factor": { "type": "number", "default": 1.0 }
+  }
+}

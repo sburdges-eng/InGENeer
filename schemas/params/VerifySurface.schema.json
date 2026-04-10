@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingenieer.local/schemas/params/VerifySurface.schema.json",
+  "title": "VerifySurfaceParameters",
+  "type": "object",
+  "required": ["surface_name"],
+  "properties": {
+    "surface_name": { "type": "string", "minLength": 1 }
+  }
+}
