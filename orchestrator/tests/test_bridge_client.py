@@ -564,6 +564,7 @@ def test_transport_telemetry_on_success():
         assert telemetry.retry_after_used is False
         assert telemetry.final_status_code == 200
         assert telemetry.error_class is None
+        assert telemetry.as_dict()["circuit_breaker_state"] == "closed"
     finally:
         client.close()
         server.shutdown()
@@ -716,3 +717,256 @@ def test_transport_telemetry_timeout():
         assert telemetry.error_class in {"timeout", "transient"}
     finally:
         client.close()
+
+
+def test_circuit_breaker_opens_after_threshold():
+    class FailingHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerCircuitOpen/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            body = b'{"error":"busy"}'
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FailingHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(
+        f"http://{host}:{port}",
+        timeout_sec=1.0,
+        max_retries=0,
+        retry_backoff_sec=0.05,
+        circuit_breaker_threshold=2,
+        circuit_breaker_cooldown_sec=0.1,
+    )
+    try:
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match="HTTP 503"):
+                client.get_model_fingerprint()
+
+        assert client.circuit_breaker_state == "open"
+        assert FailingHandler.seen == 2
+
+        with pytest.raises(RuntimeError, match="circuit breaker open: bridge unavailable") as exc_info:
+            client.get_model_fingerprint()
+
+        telemetry = exc_info.value.transport_telemetry
+        assert telemetry is not None
+        assert telemetry.attempts == 0
+        assert telemetry.error_class == "circuit_breaker"
+        assert telemetry.as_dict()["circuit_breaker_state"] == "open"
+        assert FailingHandler.seen == 2
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_circuit_breaker_half_open_probe_succeeds():
+    class RecoveryHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerCircuitHalfOpenSuccess/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            if type(self).seen == 1:
+                body = b'{"error":"busy"}'
+                self.send_response(503)
+            else:
+                body = b'{"modelFingerprint":"recovered-fp"}'
+                self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), RecoveryHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(
+        f"http://{host}:{port}",
+        timeout_sec=1.0,
+        max_retries=0,
+        retry_backoff_sec=0.05,
+        circuit_breaker_threshold=1,
+        circuit_breaker_cooldown_sec=0.1,
+    )
+    try:
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            client.get_model_fingerprint()
+
+        assert client.circuit_breaker_state == "open"
+        time.sleep(0.12)
+
+        assert client.get_model_fingerprint() == "recovered-fp"
+        assert client.circuit_breaker_state == "closed"
+        assert RecoveryHandler.seen == 2
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_circuit_breaker_half_open_probe_fails():
+    class FailingHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerCircuitHalfOpenFail/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            body = b'{"error":"still-busy"}'
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FailingHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(
+        f"http://{host}:{port}",
+        timeout_sec=1.0,
+        max_retries=0,
+        retry_backoff_sec=0.05,
+        circuit_breaker_threshold=1,
+        circuit_breaker_cooldown_sec=0.1,
+    )
+    try:
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            client.get_model_fingerprint()
+
+        time.sleep(0.12)
+
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            client.get_model_fingerprint()
+
+        assert client.circuit_breaker_state == "open"
+        assert FailingHandler.seen == 2
+
+        with pytest.raises(RuntimeError, match="circuit breaker open: bridge unavailable"):
+            client.get_model_fingerprint()
+
+        assert FailingHandler.seen == 2
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_circuit_breaker_resets_on_success():
+    class FlakyHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerCircuitReset/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            if type(self).seen in {1, 3}:
+                body = b'{"error":"busy"}'
+                self.send_response(503)
+            else:
+                body = b'{"modelFingerprint":"healthy-fp"}'
+                self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FlakyHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(
+        f"http://{host}:{port}",
+        timeout_sec=1.0,
+        max_retries=0,
+        retry_backoff_sec=0.05,
+        circuit_breaker_threshold=2,
+        circuit_breaker_cooldown_sec=0.1,
+    )
+    try:
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            client.get_model_fingerprint()
+        assert client.circuit_breaker_state == "closed"
+
+        assert client.get_model_fingerprint() == "healthy-fp"
+        assert client.circuit_breaker_state == "closed"
+
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            client.get_model_fingerprint()
+        assert client.circuit_breaker_state == "closed"
+
+        assert client.get_model_fingerprint() == "healthy-fp"
+        assert client.circuit_breaker_state == "closed"
+        assert FlakyHandler.seen == 4
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_permanent_error_does_not_trip_breaker():
+    class PermanentHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerCircuitPermanent/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            body = b'{"error":"bad request"}'
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), PermanentHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(
+        f"http://{host}:{port}",
+        timeout_sec=1.0,
+        max_retries=0,
+        retry_backoff_sec=0.05,
+        circuit_breaker_threshold=1,
+        circuit_breaker_cooldown_sec=0.1,
+    )
+    try:
+        for _ in range(3):
+            with pytest.raises(RuntimeError, match="HTTP 400"):
+                client.get_model_fingerprint()
+            assert client.circuit_breaker_state == "closed"
+
+        assert PermanentHandler.seen == 3
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()

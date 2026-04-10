@@ -36,6 +36,9 @@ class BridgeConfig(BaseModel):
     http_retry_backoff_sec: float = Field(default=0.25, ge=0.05, le=10.0)
     # Total wall-clock budget for one bridge call, across retries and backoff.
     deadline_sec: float = Field(default=60.0, ge=1.0, le=600.0)
+    # Per-client circuit breaker trips after consecutive transient transport failures.
+    circuit_breaker_threshold: int = Field(default=5, ge=1, le=50)
+    circuit_breaker_cooldown_sec: float = Field(default=30.0, ge=1.0, le=300.0)
 
 
 class IntentValidationConfig(BaseModel):
