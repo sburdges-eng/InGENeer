@@ -1,4 +1,5 @@
 import json
+import socket
 import threading
 import time
 from datetime import timedelta
@@ -529,3 +530,189 @@ def test_http_client_verify_uses_verify_fingerprint_request_id():
         client.close()
         server.shutdown()
         server.server_close()
+
+
+def test_transport_telemetry_on_success():
+    class SuccessHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerTransportSuccess/1.0"
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            body = b'{"modelFingerprint":"telemetry-fp"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), SuccessHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(f"http://{host}:{port}", timeout_sec=1.0, max_retries=0, retry_backoff_sec=0.05)
+    try:
+        assert client.get_model_fingerprint() == "telemetry-fp"
+        telemetry = client.last_transport_telemetry
+        assert telemetry is not None
+        assert telemetry.request_id == "model-fingerprint:attempt-1"
+        assert telemetry.attempts == 1
+        assert telemetry.retried_status_codes == []
+        assert telemetry.total_duration_sec > 0
+        assert telemetry.retry_after_used is False
+        assert telemetry.final_status_code == 200
+        assert telemetry.error_class is None
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_transport_telemetry_on_retry():
+    class RetryHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerTransportRetry/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            if type(self).seen == 1:
+                body = b'{"error":"busy"}'
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            body = b'{"modelFingerprint":"retry-telemetry-fp"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), RetryHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(f"http://{host}:{port}", timeout_sec=1.0, max_retries=1, retry_backoff_sec=0.05)
+    try:
+        assert client.get_model_fingerprint() == "retry-telemetry-fp"
+        telemetry = client.last_transport_telemetry
+        assert telemetry is not None
+        assert telemetry.attempts == 2
+        assert telemetry.retried_status_codes == [503]
+        assert telemetry.final_status_code == 200
+        assert telemetry.error_class is None
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_transport_telemetry_on_permanent_failure():
+    class FailureHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerTransportPermanent/1.0"
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            body = b'{"error":"bad request"}'
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), FailureHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(f"http://{host}:{port}", timeout_sec=1.0, max_retries=0, retry_backoff_sec=0.05)
+    try:
+        with pytest.raises(RuntimeError) as exc_info:
+            client.get_model_fingerprint()
+        telemetry = exc_info.value.transport_telemetry
+        assert telemetry is not None
+        assert telemetry.attempts == 1
+        assert telemetry.final_status_code == 400
+        assert telemetry.error_class == "permanent"
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_transport_telemetry_retry_after_used(monkeypatch):
+    class RetryHandler(BaseHTTPRequestHandler):
+        server_version = "InGENeerTransportRetryAfter/1.0"
+        seen = 0
+
+        def log_message(self, _format: str, *_args) -> None:  # noqa: ANN001
+            return
+
+        def do_GET(self) -> None:
+            type(self).seen += 1
+            if type(self).seen == 1:
+                body = b'{"error":"throttled"}'
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Retry-After", format_datetime(bridge_client_module._utc_now() + timedelta(seconds=2)))
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            body = b'{"modelFingerprint":"retry-after-telemetry-fp"}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    fixed_now = bridge_client_module._utc_now().replace(microsecond=0)
+    monkeypatch.setattr(bridge_client_module, "_utc_now", lambda: fixed_now)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), RetryHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    host, port = server.server_address
+    client = HttpBridgeClient(f"http://{host}:{port}", timeout_sec=1.0, max_retries=1, retry_backoff_sec=0.05)
+    try:
+        assert client.get_model_fingerprint() == "retry-after-telemetry-fp"
+        telemetry = client.last_transport_telemetry
+        assert telemetry is not None
+        assert telemetry.retry_after_used is True
+        assert telemetry.retried_status_codes == [429]
+        assert telemetry.attempts == 2
+    finally:
+        client.close()
+        server.shutdown()
+        server.server_close()
+
+
+def test_transport_telemetry_timeout():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        _host, port = sock.getsockname()
+
+    client = HttpBridgeClient(f"http://127.0.0.1:{port}", timeout_sec=0.1, max_retries=0, retry_backoff_sec=0.05)
+    try:
+        with pytest.raises(RuntimeError) as exc_info:
+            client.get_model_fingerprint()
+        telemetry = exc_info.value.transport_telemetry
+        assert telemetry is not None
+        assert telemetry.attempts == 1
+        assert telemetry.final_status_code is None
+        assert telemetry.error_class in {"timeout", "transient"}
+    finally:
+        client.close()
