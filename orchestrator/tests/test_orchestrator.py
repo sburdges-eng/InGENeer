@@ -22,6 +22,26 @@ class StaleFingerPrintBridge(MockBridgeClient):
         )
 
 
+class MissingFingerprintTelemetryBridge(MockBridgeClient):
+    """Returns success telemetry without modelFingerprintAfter."""
+
+    def execute_intent(self, intent):
+        return BridgeExecutionResult(
+            success=True,
+            stdout=f"mock:{intent.command}",
+            telemetry={
+                "intentId": intent.intentId,
+                "command": intent.command,
+                "executionMode": intent.executionMode,
+            },
+        )
+
+
+class RaisingExecuteBridge(MockBridgeClient):
+    def execute_intent(self, intent):
+        raise RuntimeError("bridge execute boom")
+
+
 def test_pipeline_all_phases_mock(tmp_path):
     audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
     out = tmp_path / "out"
@@ -112,6 +132,54 @@ def test_verify_retries_transient_then_succeeds(tmp_path):
     result = orch.run(intent)
     assert result.success
     assert result.phases[-1].data["verification"]["attempts"] == 3
+
+
+def test_verify_fails_when_dispatch_telemetry_missing_fingerprint(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    bridge = MissingFingerprintTelemetryBridge()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out, bridge=bridge)
+    intent = CadIntentEnvelope(intentId="missing-fp-1", command="NoOp", parameters={})
+
+    result = orch.run(intent)
+
+    assert not result.success
+    assert result.phases[-1].phase == "verify_result"
+    assert "missing" in result.phases[-1].message.lower()
+    assert "modelfingerprintafter" in result.phases[-1].message.lower()
+
+
+def test_dispatch_exception_fails_at_dispatch_execute(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    bridge = RaisingExecuteBridge()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out, bridge=bridge)
+    intent = CadIntentEnvelope(intentId="dispatch-exc-1", command="NoOp", parameters={})
+
+    result = orch.run(intent)
+
+    assert not result.success
+    assert result.phases[-1].phase == "dispatch_execute"
+    assert result.phases[-1].message == "Dispatch exception: bridge execute boom"
+
+
+def test_verify_transient_exhaustion_fails_after_retry_limit(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    bridge = MockBridgeClient(verify_transient_failures=5)
+    cfg = OrchestratorConfig(max_verification_attempts=3, verification_backoff_sec=0.05)
+    orch = PipelineOrchestrator(cfg, audit, out, bridge=bridge)
+    intent = CadIntentEnvelope(intentId="verify-exhaust-1", command="NoOp", parameters={})
+
+    result = orch.run(intent)
+
+    assert not result.success
+    assert result.phases[-1].phase == "verify_result"
+    assert result.phases[-1].message == "mock transient verify failure"
+    assert result.phases[-1].data["verification"]["transient_failure"] is True
 
 
 def test_high_risk_execute_fails_without_confirmation(tmp_path):
@@ -813,6 +881,44 @@ def test_validate_rejects_unknown_command(tmp_path):
     assert not result.success
     assert result.phases[-1].phase == "validate_intent"
     assert "allowlist" in result.phases[-1].message.lower()
+
+
+def test_validate_rejects_empty_intent_id(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    orch = PipelineOrchestrator(OrchestratorConfig(), audit, out)
+    intent = CadIntentEnvelope(intentId="valid", command="NoOp", parameters={}).model_copy(
+        update={"intentId": ""}
+    )
+
+    result = orch.run(intent)
+
+    assert not result.success
+    assert result.phases[-1].phase == "validate_intent"
+    assert "non-empty" in result.phases[-1].message.lower()
+
+
+def test_validate_rejects_schema_version_mismatch(tmp_path):
+    audit = AuditLogger(log_dir=str(tmp_path / "audit"), project_id="t")
+    out = tmp_path / "out"
+    out.mkdir()
+    cfg = OrchestratorConfig(
+        intent_validation={
+            "enforce_json_schema": True,
+            "enforce_command_allowlist": True,
+        },
+    )
+    orch = PipelineOrchestrator(cfg, audit, out)
+    intent = CadIntentEnvelope(intentId="schema-mismatch", command="NoOp", parameters={}).model_copy(
+        update={"schemaVersion": "9.9.9"}
+    )
+
+    result = orch.run(intent)
+
+    assert not result.success
+    assert result.phases[-1].phase == "validate_intent"
+    assert "'1.1.0' was expected" in result.phases[-1].message
 
 
 # --- Coverage for previously untested commands ---

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tomllib
 from pathlib import Path
 from typing import Any, Literal
 
@@ -50,6 +52,51 @@ class OrchestratorConfig(BaseModel):
     intent_validation: IntentValidationConfig = Field(default_factory=IntentValidationConfig)
     max_verification_attempts: int = Field(default=3, ge=1, le=10)
     verification_backoff_sec: float = Field(default=0.3, ge=0.05, le=30.0)
+
+    @classmethod
+    def from_env(cls) -> OrchestratorConfig:
+        schema_enforce = _env_bool("INGENEER_SCHEMA_ENFORCE", True)
+        return cls.model_validate(
+            {
+                "bridge": {
+                    "mode": os.environ.get("INGENEER_BRIDGE_MODE", "mock"),
+                    "http_base_url": os.environ.get(
+                        "INGENEER_BRIDGE_URL",
+                        "http://127.0.0.1:8765",
+                    ),
+                    "timeout_sec": _env_float("INGENEER_BRIDGE_TIMEOUT", 10.0),
+                    "mock_model_fingerprint": os.environ.get(
+                        "INGENEER_BRIDGE_FINGERPRINT",
+                        "stub-fingerprint",
+                    ),
+                },
+                "intent_validation": {
+                    "enforce_json_schema": schema_enforce,
+                    "enforce_command_allowlist": schema_enforce,
+                },
+                "max_verification_attempts": _env_int("INGENEER_MAX_VERIFY_ATTEMPTS", 3),
+                "verification_backoff_sec": _env_float("INGENEER_VERIFY_BACKOFF", 0.5),
+            }
+        )
+
+    @classmethod
+    def from_toml(cls, path: str | Path) -> OrchestratorConfig:
+        toml_path = Path(path)
+        with toml_path.open("rb") as handle:
+            raw = tomllib.load(handle)
+
+        config_data = dict(raw)
+        intent_validation = config_data.get("intent_validation")
+        if isinstance(intent_validation, dict):
+            intent_validation = dict(intent_validation)
+            # Support the documented sample layout, where retry settings appear
+            # after [intent_validation] and therefore parse inside that table.
+            for key in ("max_verification_attempts", "verification_backoff_sec"):
+                if key not in config_data and key in intent_validation:
+                    config_data[key] = intent_validation.pop(key)
+            config_data["intent_validation"] = intent_validation
+
+        return cls.model_validate(config_data)
 
 
 class CadIntentEnvelope(BaseModel):
@@ -120,3 +167,25 @@ class OrchestratorContext(BaseModel):
         for key, value in data.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean string, got {raw!r}")
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    return default if raw is None else float(raw)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    return default if raw is None else int(raw)
