@@ -34,6 +34,8 @@ class BridgeConfig(BaseModel):
     # Retries only for transient transport errors (connection reset, 503, etc.) — not for 4xx or bridge logic failures.
     http_max_retries: int = Field(default=2, ge=0, le=8)
     http_retry_backoff_sec: float = Field(default=0.25, ge=0.05, le=10.0)
+    # Total wall-clock budget for one bridge call, across retries and backoff.
+    deadline_sec: float = Field(default=60.0, ge=1.0, le=600.0)
 
 
 class IntentValidationConfig(BaseModel):

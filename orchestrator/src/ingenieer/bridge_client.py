@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import errno
+import http.client
 import json
 import random
+import socket
+import threading
 import time
-import urllib.error
-import urllib.request
 from typing import Any, Protocol
+from urllib.parse import SplitResult, urlsplit
 
 from ingenieer.models import CadIntentEnvelope, OrchestratorConfig
 from ingenieer.wire import BridgeExecutionResult, BridgeVerifyResult
@@ -183,6 +186,101 @@ def _transient_http_code(code: int) -> bool:
     return code in (429, 502, 503, 504)
 
 
+class _HttpTransportError(RuntimeError):
+    def __init__(self, message: str, *, transient: bool) -> None:
+        super().__init__(message)
+        self.transient = transient
+
+
+class _HttpConnectionPool:
+    """Small deterministic keep-alive pool for the sequential orchestrator client."""
+
+    def __init__(self, parsed_base: SplitResult, timeout_sec: float) -> None:
+        self._parsed_base = parsed_base
+        self._timeout = timeout_sec
+        self._lock = threading.Lock()
+        self._connection: http.client.HTTPConnection | http.client.HTTPSConnection | None = None
+
+    def request(
+        self,
+        method: str,
+        target: str,
+        *,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        timeout_sec: float | None = None,
+    ) -> tuple[int, str]:
+        with self._lock:
+            request_timeout = self._timeout if timeout_sec is None else timeout_sec
+            conn = self._connection
+            if conn is None:
+                conn = self._new_connection(request_timeout)
+                self._connection = conn
+            else:
+                conn.timeout = request_timeout
+                if conn.sock is not None:
+                    conn.sock.settimeout(request_timeout)
+
+            try:
+                conn.request(method, target, body=body, headers=headers or {})
+                response = conn.getresponse()
+                raw = response.read().decode("utf-8")
+                status = response.status
+                if response.will_close:
+                    self._close_locked()
+                return status, raw
+            except Exception:
+                self._close_locked()
+                raise
+
+    def close(self) -> None:
+        with self._lock:
+            self._close_locked()
+
+    def _new_connection(self, timeout_sec: float) -> http.client.HTTPConnection | http.client.HTTPSConnection:
+        host = self._parsed_base.hostname
+        assert host is not None
+        port = self._parsed_base.port
+        if self._parsed_base.scheme == "https":
+            return http.client.HTTPSConnection(host, port=port, timeout=timeout_sec)
+        return http.client.HTTPConnection(host, port=port, timeout=timeout_sec)
+
+    def _close_locked(self) -> None:
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
+
+
+def _is_transient_transport_exception(exc: Exception) -> bool:
+    if isinstance(
+        exc,
+        (
+            TimeoutError,
+            socket.timeout,
+            BrokenPipeError,
+            ConnectionAbortedError,
+            ConnectionRefusedError,
+            ConnectionResetError,
+            http.client.BadStatusLine,
+            http.client.CannotSendRequest,
+            http.client.RemoteDisconnected,
+            http.client.ResponseNotReady,
+        ),
+    ):
+        return True
+    if isinstance(exc, OSError):
+        return exc.errno in {
+            errno.ECONNABORTED,
+            errno.ECONNREFUSED,
+            errno.ECONNRESET,
+            errno.EHOSTUNREACH,
+            errno.ENETUNREACH,
+            errno.EPIPE,
+            errno.ETIMEDOUT,
+        }
+    return False
+
+
 class HttpBridgeClient:
     """HTTP client for GET /v1/model-fingerprint and POST /v1/execute."""
 
@@ -191,13 +289,22 @@ class HttpBridgeClient:
         base_url: str,
         timeout_sec: float,
         *,
+        deadline_sec: float = 60.0,
         max_retries: int = 2,
         retry_backoff_sec: float = 0.25,
     ) -> None:
-        self._base = base_url.rstrip("/")
+        parsed_base = urlsplit(base_url.rstrip("/"))
+        if parsed_base.scheme not in {"http", "https"}:
+            raise ValueError(f"Unsupported bridge URL scheme: {parsed_base.scheme!r}")
+        if parsed_base.hostname is None:
+            raise ValueError(f"Bridge base URL must include a host: {base_url!r}")
+
+        self._base = parsed_base
         self._timeout = timeout_sec
+        self._deadline = deadline_sec
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff_sec
+        self._pool = _HttpConnectionPool(parsed_base, timeout_sec)
 
     def _sleep_backoff(self, attempt: int) -> None:
         base = self._retry_backoff * (2**attempt)
@@ -206,57 +313,120 @@ class HttpBridgeClient:
 
     def _open_json(
         self,
-        req: urllib.request.Request,
+        method: str,
+        path: str,
         *,
+        body: bytes | None = None,
         attempts: int | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        last_exc: Exception | None = None
+        last_exc: _HttpTransportError | None = None
         tries = (self._max_retries + 1) if attempts is None else attempts
+        deadline = time.monotonic() + self._deadline
+        target = self._build_target(path)
+        headers = {"Accept": "application/json", "Connection": "keep-alive"}
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+
         for attempt in range(tries):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise _HttpTransportError(
+                    f"deadline exceeded after {self._deadline:.2f}s",
+                    transient=True,
+                )
+
             try:
-                with urllib.request.urlopen(req, timeout=self._timeout) as resp:
-                    raw = resp.read().decode()
-                    code = resp.getcode()
+                request_timeout = min(self._timeout, remaining)
+                code, raw = self._pool.request(
+                    method,
+                    target,
+                    body=body,
+                    headers=headers,
+                    timeout_sec=request_timeout,
+                )
+                if _transient_http_code(code):
+                    last_exc = _HttpTransportError(f"HTTP {code}: {raw}", transient=True)
+                    self._pool.close()
+                    if attempt + 1 < tries:
+                        backoff = self._retry_backoff * (2**attempt) + random.uniform(
+                            0,
+                            self._retry_backoff * 0.5,
+                        )
+                        if time.monotonic() + backoff >= deadline:
+                            raise _HttpTransportError(
+                                f"deadline exceeded after {self._deadline:.2f}s",
+                                transient=True,
+                            ) from None
+                        time.sleep(backoff)
+                        continue
+                    raise last_exc
+                if not 200 <= code < 300:
+                    raise _HttpTransportError(f"HTTP {code}: {raw}", transient=False)
+                try:
                     return code, json.loads(raw)
-            except urllib.error.HTTPError as exc:
-                raw = exc.read().decode()
-                if _transient_http_code(exc.code) and attempt + 1 < tries:
-                    self._sleep_backoff(attempt)
-                    continue
-                raise RuntimeError(f"HTTP {exc.code}: {raw}") from exc
-            except urllib.error.URLError as exc:
+                except json.JSONDecodeError as exc:
+                    raise _HttpTransportError(
+                        f"invalid JSON response: {exc.msg}",
+                        transient=False,
+                    ) from exc
+            except _HttpTransportError as exc:
                 last_exc = exc
-                if attempt + 1 < tries:
+                if exc.transient and attempt + 1 < tries:
+                    backoff = self._retry_backoff * (2**attempt) + random.uniform(
+                        0,
+                        self._retry_backoff * 0.5,
+                    )
+                    if time.monotonic() + backoff >= deadline:
+                        raise _HttpTransportError(
+                            f"deadline exceeded after {self._deadline:.2f}s",
+                            transient=True,
+                        ) from exc
+                    time.sleep(backoff)
+                    continue
+                raise
+            except Exception as exc:
+                message = (
+                    f"timeout after {self._timeout:.2f}s"
+                    if isinstance(exc, (TimeoutError, socket.timeout))
+                    else f"connection failed: {exc}"
+                )
+                last_exc = _HttpTransportError(
+                    message,
+                    transient=_is_transient_transport_exception(exc),
+                )
+                if last_exc.transient and attempt + 1 < tries:
                     self._sleep_backoff(attempt)
                     continue
-                raise RuntimeError(f"connection failed: {exc}") from exc
+                raise last_exc from exc
+
         assert last_exc is not None
-        raise RuntimeError(f"connection failed: {last_exc}") from last_exc
+        raise last_exc
+
+    def _build_target(self, path: str) -> str:
+        base_path = self._base.path.rstrip("/")
+        return f"{base_path}{path}" if base_path else path
+
+    def close(self) -> None:
+        self._pool.close()
 
     def get_model_fingerprint(self) -> str:
-        url = f"{self._base}/v1/model-fingerprint"
-        req = urllib.request.Request(url, method="GET")
         try:
-            _code, payload = self._open_json(req)
-        except RuntimeError as exc:
-            raise RuntimeError(f"model-fingerprint {exc}") from exc
+            _code, payload = self._open_json("GET", "/v1/model-fingerprint")
+        except _HttpTransportError as exc:
+            raise _HttpTransportError(
+                f"model-fingerprint {exc}",
+                transient=exc.transient,
+            ) from exc
         fp = payload.get("modelFingerprint")
         if not isinstance(fp, str) or not fp:
             raise RuntimeError("model-fingerprint response missing modelFingerprint string")
         return fp
 
     def execute_intent(self, intent: CadIntentEnvelope) -> BridgeExecutionResult:
-        url = f"{self._base}/v1/execute"
         body = json.dumps(intent.model_dump(mode="json")).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
         try:
-            _code, payload = self._open_json(req)
-        except RuntimeError as exc:
+            _code, payload = self._open_json("POST", "/v1/execute", body=body)
+        except _HttpTransportError as exc:
             return BridgeExecutionResult(
                 success=False,
                 stdout="",
@@ -279,12 +449,17 @@ class HttpBridgeClient:
             )
         try:
             observed = self.get_model_fingerprint()
-        except Exception as exc:  # noqa: BLE001 — classify transient at HTTP layer
-            err = str(exc).lower()
-            transient = "connection" in err or "timeout" in err or "503" in err or "502" in err
+        except _HttpTransportError as exc:
             return BridgeVerifyResult(
                 success=False,
-                transient_failure=transient,
+                transient_failure=exc.transient,
+                message=f"verify fingerprint read failed: {exc}",
+                evidence={"intentId": intent.intentId},
+            )
+        except Exception as exc:  # noqa: BLE001 — fail closed for non-transport protocol issues
+            return BridgeVerifyResult(
+                success=False,
+                transient_failure=False,
                 message=f"verify fingerprint read failed: {exc}",
                 evidence={"intentId": intent.intentId},
             )
@@ -311,6 +486,7 @@ def create_bridge_client(config: OrchestratorConfig) -> BridgeClient:
     return HttpBridgeClient(
         config.bridge.http_base_url,
         config.bridge.timeout_sec,
+        deadline_sec=config.bridge.deadline_sec,
         max_retries=config.bridge.http_max_retries,
         retry_backoff_sec=config.bridge.http_retry_backoff_sec,
     )

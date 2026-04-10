@@ -27,7 +27,11 @@
 
 - Config: `OrchestratorConfig.bridge.timeout_sec` (default **30** seconds, range 1–120).
 - Applies per HTTP request (fingerprint GET and execute POST separately).
+- Config: `OrchestratorConfig.bridge.deadline_sec` (default **60** seconds, range 1–600).
+- Applies to the full wall-clock duration of one bridge call, including retries and backoff; once exceeded, the call fails as a transient timeout instead of stretching until retry exhaustion.
 - **Transient retries** (orchestrator only, not inside CAD transactions): `bridge.http_max_retries` (default **2** extra attempts) and `bridge.http_retry_backoff_sec` (default **0.25** s, exponential backoff with jitter). Retries apply to connection errors and HTTP **429**, **502**, **503**, **504** only—not to logical 4xx failures.
+- Timeout handling is explicit at the transport layer: connect/read timeouts are surfaced as **transient transport failures**, so `verify_result` may retry them but schema/protocol mismatches still fail closed.
+- The Python HTTP client keeps a **single reusable keep-alive connection** per `HttpBridgeClient` instance. If the host closes the socket or a transient transport fault occurs, the client drops that connection and reconnects on the next attempt.
 
 ---
 
