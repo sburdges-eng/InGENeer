@@ -46,6 +46,15 @@ class IntentValidationConfig(BaseModel):
     enforce_command_allowlist: bool = True
 
 
+class GeneratorConfig(BaseModel):
+    """LLM intent generation settings."""
+
+    api_key: str = ""
+    model: str = "claude-sonnet-4-20250514"
+    max_tokens: int = Field(default=4096, ge=256, le=16384)
+    temperature: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
 class OrchestratorConfig(BaseModel):
     """Runtime config for the phase orchestrator."""
 
@@ -55,6 +64,7 @@ class OrchestratorConfig(BaseModel):
     audit: AuditConfig = Field(default_factory=AuditConfig)
     bridge: BridgeConfig = Field(default_factory=BridgeConfig)
     intent_validation: IntentValidationConfig = Field(default_factory=IntentValidationConfig)
+    generator: GeneratorConfig = Field(default_factory=GeneratorConfig)
     max_verification_attempts: int = Field(default=3, ge=1, le=10)
     verification_backoff_sec: float = Field(default=0.3, ge=0.05, le=30.0)
 

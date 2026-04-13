@@ -12,6 +12,7 @@ license = "MIT"
 dependencies = [
     "pydantic>=2.5",
     "jsonschema>=4.20",
+    "anthropic>=0.40",
 ]
 
 [project.optional-dependencies]
