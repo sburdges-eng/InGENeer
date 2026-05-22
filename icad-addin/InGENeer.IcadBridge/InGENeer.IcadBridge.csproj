@@ -3,7 +3,7 @@
   <!-- Shared: icad-addin/Directory.Build.props -->
 
   <ItemGroup>
-    <PackageReference Include="JsonSchema.Net" Version="9.1.4" />
+    <PackageReference Include="JsonSchema.Net" Version="9.2.1" />
   </ItemGroup>
 
 </Project>
