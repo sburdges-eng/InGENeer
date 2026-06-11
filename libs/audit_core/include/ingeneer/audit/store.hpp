@@ -59,6 +59,11 @@ public:
     // Count of chain events (test/diagnostic).
     std::expected<std::int64_t, AuditError> event_count() const;
 
+    // Export the chain as JSONL in the Python AuditLogger line format (spec §6): keys in
+    // insertion order seq/timestamp/project_id/event/data/prev_hash/hash, ", "/": "
+    // separators. The result verifies under Python AuditLogger.verify_chain().
+    std::expected<void, AuditError> export_jsonl(const std::string& out_path) const;
+
 private:
     Store() = default;
     sqlite3* db_ = nullptr;
