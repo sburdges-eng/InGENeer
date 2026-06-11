@@ -67,7 +67,7 @@ fi
 
 # 5. domain isolation: no LLM/AI in C# execution layer.
 echo ">>> domain-isolation:csharp"
-if grep -rniE "openai|anthropic|\bllm\b|transformers" icad-addin/ --include="*.cs" >/dev/null 2>&1; then
+if grep -rniE "openai|anthropic|\bllm\b|transformers" icad-addin/ --include="*.cs" --exclude-dir=obj --exclude-dir=bin >/dev/null 2>&1; then
   echo "    found LLM/AI symbols in icad-addin (Rule 1 violation)"
   record "domain-isolation:csharp" 1
 else
