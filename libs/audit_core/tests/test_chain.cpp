@@ -19,12 +19,12 @@ static void run() {
     std::remove(path.c_str());
 
     {
-        auto s = Store::open(path);
+        auto s = Store::open(path, "proj");
         CHECK(s.has_value());
         auto& store = *s;
 
         for (int i = 0; i < 3; ++i) {
-            Event ev{"NOTE", "{\"i\":" + std::to_string(i) + "}", "proj",
+            Event ev{"NOTE", "{\"i\": " + std::to_string(i) + "}",
                      "2026-06-11T00:00:0" + std::to_string(i) + "+00:00"};
             auto r = store.append(ev);
             CHECK(r.has_value());
@@ -40,7 +40,7 @@ static void run() {
 
     // Reopen: chain still verifies from disk.
     {
-        auto s = Store::open(path);
+        auto s = Store::open(path, "proj");
         CHECK(s.has_value());
         CHECK(s->verify_chain().has_value());
     }
@@ -54,7 +54,7 @@ static void run() {
                      nullptr, nullptr);
         sqlite3_close(raw);
 
-        auto s = Store::open(path);
+        auto s = Store::open(path, "proj");
         CHECK(s.has_value());
         auto v = s->verify_chain();
         CHECK(!v.has_value());

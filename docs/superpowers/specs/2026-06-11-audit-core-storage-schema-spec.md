@@ -89,10 +89,13 @@ CREATE UNIQUE INDEX ux_event_hash ON event(hash);
 
 **Hash definition (frozen — must match `orchestrator/src/ingenieer/audit.py`):**
 the pre-hash record is the JSON object
-`{"seq","timestamp","project_id"|"chain_id","event","data","prev_hash"}` serialized with
-`sort_keys=true`, compact separators, UTF-8; `hash = SHA256(bytes).hexdigest()`. The
-stored `hash` column equals that digest. A cross-language fixture (§6) pins this so the
-C++ writer and the Python verifier agree bit-for-bit. **Genesis** `prev_hash` is 64 `0`s.
+`{"seq","timestamp","project_id"|"chain_id","event","data","prev_hash"}` serialized exactly
+as Python `json.dumps(record, sort_keys=True)` does with defaults: separators `", "` /
+`": "` (with the single space) and `ensure_ascii=True` (every code point outside
+`0x20..0x7E` escaped as `\uXXXX`, surrogate pairs above the BMP);
+`hash = SHA256(bytes).hexdigest()`. The stored `hash` column equals that digest.
+Cross-language fixtures (§6) pin this — including a non-ASCII vector — so the C++ writer
+and the Python verifier agree bit-for-bit. **Genesis** `prev_hash` is 64 `0`s.
 
 > Frozen-semantics note (ADR-0023 discipline): the field set, key order, and encoding of
 > the pre-hash record are an **oracle**. Changing them is a versioned migration with a new

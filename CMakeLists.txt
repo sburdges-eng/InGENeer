@@ -54,8 +54,17 @@ if(INGENEER_HARDENED)
     # OpenSSF Compiler Hardening Guide consensus subset (plan §3.5).
     target_compile_options(ingeneer_engine_flags INTERFACE
         -D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS
-        -fstack-protector-strong -fstack-clash-protection
+        -fstack-protector-strong
         -Wformat -Wformat-security -Werror=format-security)
+    # Apple clang on arm64 accepts but ignores -fstack-clash-protection (warns); only add
+    # it where the compiler actually implements it (Linux gcc/clang).
+    include(CheckCXXCompilerFlag)
+    set(CMAKE_REQUIRED_FLAGS "-Werror=unused-command-line-argument")
+    check_cxx_compiler_flag("-fstack-clash-protection" INGENEER_HAS_STACK_CLASH)
+    unset(CMAKE_REQUIRED_FLAGS)
+    if(INGENEER_HAS_STACK_CLASH)
+        target_compile_options(ingeneer_engine_flags INTERFACE -fstack-clash-protection)
+    endif()
 endif()
 
 enable_testing()

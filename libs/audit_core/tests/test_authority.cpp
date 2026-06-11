@@ -12,7 +12,7 @@ static void run() {
     const std::string path = "audit_authority_test.sqlite";
     std::remove(path.c_str());
 
-    auto s = Store::open(path);
+    auto s = Store::open(path, "proj");
     CHECK(s.has_value());
     auto& store = *s;
 

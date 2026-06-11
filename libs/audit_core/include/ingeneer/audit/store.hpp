@@ -5,6 +5,7 @@
 
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -15,11 +16,16 @@ struct sqlite3;
 
 namespace ingeneer::audit {
 
-// Single-writer per Store (H-21). Readers may open additional Stores on the same file.
+// One Store = one chain database identified by `chain_id` (the canonical record's
+// "project_id"). Writes on a Store are serialized by an internal writer mutex (H-21);
+// cross-connection writers are serialized by BEGIN IMMEDIATE + busy_timeout. Readers may
+// open additional Stores on the same file.
 class Store {
 public:
     // Open (creating if needed) a chain database. Applies WAL + pragmas and the schema.
-    static std::expected<Store, AuditError> open(const std::string& path);
+    // `chain_id` stamps every appended record (product chain: project id; agent chain:
+    // session scope).
+    static std::expected<Store, AuditError> open(const std::string& path, std::string chain_id);
 
     Store(Store&&) noexcept;
     Store& operator=(Store&&) noexcept;
@@ -31,13 +37,17 @@ public:
     std::expected<AppendResult, AuditError> append(const Event& ev);
 
     // Create an entity with authority metadata (R-2.1). Records a creation promotion +
-    // event atomically. Rejects creating directly at APPROVED/CERTIFIED by a non-human.
+    // event atomically. Creating at APPROVED/CERTIFIED requires a human actor (C-1.1);
+    // AI_PROPOSED and REVIEWED are agent-accessible by design (spec §3.3 guards 1–2 only
+    // bind APPROVED and above).
     std::expected<AppendResult, AuditError> create_entity(const CreateEntityRequest& req);
 
     // Promote an entity along the ladder (R-2.2) with storage-layer guards (spec §3.3).
     std::expected<AppendResult, AuditError> promote(const PromotionRequest& req);
 
-    // Recompute every hash and check prev linkage offline (R-2.6).
+    // Recompute every hash and check prev linkage offline (R-2.6). A NULL value in a
+    // NOT NULL column is reported as ChainBroken ("corrupted"), distinct from a hash
+    // mismatch ("tampered"), so forensics can tell the cases apart.
     std::expected<void, AuditError> verify_chain() const;
 
     // Current projected authority class for an entity.
@@ -52,6 +62,9 @@ public:
 private:
     Store() = default;
     sqlite3* db_ = nullptr;
+    std::string chain_id_;
+    // unique_ptr keeps Store movable; guards all write paths (H-21 single-writer).
+    std::unique_ptr<std::mutex> write_mutex_;
 };
 
 }  // namespace ingeneer::audit

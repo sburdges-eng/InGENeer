@@ -1,5 +1,6 @@
 #include "ingeneer/audit/sha256.hpp"
 
+#include <cassert>
 #include <cstring>
 
 namespace ingeneer::audit {
@@ -17,7 +18,11 @@ constexpr std::array<std::uint32_t, 64> kK = {
     0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u,
     0xc67178f2u};
 
-inline std::uint32_t rotr(std::uint32_t x, std::uint32_t n) { return (x >> n) | (x << (32 - n)); }
+inline std::uint32_t rotr(std::uint32_t x, std::uint32_t n) {
+    // All SHA-256 schedule rotations use 0 < n < 32; n == 0 would make `x << 32` UB.
+    assert(n > 0 && n < 32);
+    return (x >> n) | (x << (32 - n));
+}
 
 }  // namespace
 
