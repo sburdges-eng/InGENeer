@@ -2,10 +2,12 @@
 
 #include <sqlite3.h>
 
+#include <fstream>
 #include <optional>
 #include <utility>
 
 #include "ingeneer/audit/canonical.hpp"
+#include "ingeneer/audit/jsonl.hpp"
 #include "ingeneer/audit/sha256.hpp"
 
 namespace ingeneer::audit {
@@ -180,8 +182,23 @@ std::expected<AppendResult, AuditError> append_locked(sqlite3* db, const std::st
         }
     }
 
+    // Enforce the payload contract at the storage layer (review HIGH-3): the payload is
+    // parsed and re-emitted canonically (recursive sorted keys, frozen separators) so the
+    // hashed bytes always match what Python's sort_keys re-dump would produce — regardless
+    // of the key order the caller supplied. Invalid JSON is rejected, never hashed.
+    auto payload = canonicalize_json(ev.payload_json);
+    if (!payload) {
+        return std::unexpected(
+            AuditError(AuditErrc::InvalidArgument, "payload_json: " + payload.error().message));
+    }
+    // Evaluator N1: a number token that is not a Python re-dump fixed point ("1.50",
+    // "1e5") would self-verify in C++ yet fail Python verification. Reject it up front.
+    if (auto nums = validate_python_number_tokens(*payload); !nums) {
+        return std::unexpected(
+            AuditError(AuditErrc::InvalidArgument, "payload_json: " + nums.error().message));
+    }
     const std::string record =
-        canonical_record(seq, ev.timestamp, chain_id, ev.event_type, ev.payload_json, prev);
+        canonical_record(seq, ev.timestamp, chain_id, ev.event_type, *payload, prev);
     const std::string hash = sha256_hex(record);
 
     Stmt ins(db,
@@ -194,7 +211,7 @@ std::expected<AppendResult, AuditError> append_locked(sqlite3* db, const std::st
     ins.bind_text(2, ev.timestamp);
     ins.bind_text(3, chain_id);
     ins.bind_text(4, ev.event_type);
-    ins.bind_text(5, ev.payload_json);
+    ins.bind_text(5, *payload);  // store the canonical bytes that were hashed
     ins.bind_text(6, prev);
     ins.bind_text(7, hash);
     if (ins.step() != SQLITE_DONE) {
@@ -503,6 +520,12 @@ std::expected<void, AuditError> Store::verify_chain() const {
             return std::unexpected(
                 AuditError(AuditErrc::ChainBroken, "seq gap at " + std::to_string(seq)));
         }
+        // One database == one chain: a record stamped with a foreign chain_id means a
+        // second Store interleaved records (evaluator note) — reject, don't verify past it.
+        if (*chain != chain_id_) {
+            return std::unexpected(AuditError(AuditErrc::ChainBroken,
+                                              "foreign chain_id at seq " + std::to_string(seq)));
+        }
         if (expected_prev != *prev) {
             return std::unexpected(AuditError(AuditErrc::ChainBroken,
                                               "prev_hash mismatch at seq " + std::to_string(seq)));
@@ -573,6 +596,42 @@ std::expected<std::int64_t, AuditError> Store::event_count() const {
         return std::unexpected(io(db_, "event_count"));
     }
     return sqlite3_column_int64(st.get(), 0);
+}
+
+std::expected<void, AuditError> Store::export_jsonl(const std::string& out_path) const {
+    std::ofstream out(out_path, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        return std::unexpected(AuditError(AuditErrc::Io, "cannot open " + out_path));
+    }
+    Stmt st(db_,
+            "SELECT seq,ts,chain_id,event_type,payload_json,prev_hash,hash FROM event"
+            " ORDER BY seq ASC");
+    if (!st.ok()) {
+        return std::unexpected(io(db_, "prepare export"));
+    }
+    while (st.step() == SQLITE_ROW) {
+        const std::int64_t seq = sqlite3_column_int64(st.get(), 0);
+        const auto ts = col_text(st.get(), 1);
+        const auto chain = col_text(st.get(), 2);
+        const auto etype = col_text(st.get(), 3);
+        const auto payload = col_text(st.get(), 4);
+        const auto prev = col_text(st.get(), 5);
+        const auto hash = col_text(st.get(), 6);
+        if (!ts || !chain || !etype || !payload || !prev || !hash) {
+            return std::unexpected(
+                AuditError(AuditErrc::ChainBroken, "NULL column at seq " + std::to_string(seq)));
+        }
+        // Python AuditLogger line: insertion-order keys, default separators.
+        out << "{\"seq\": " << seq << ", \"timestamp\": \"" << json_escape(*ts)
+            << "\", \"project_id\": \"" << json_escape(*chain) << "\", \"event\": \""
+            << json_escape(*etype) << "\", \"data\": " << *payload << ", \"prev_hash\": \""
+            << json_escape(*prev) << "\", \"hash\": \"" << json_escape(*hash) << "\"}\n";
+    }
+    out.flush();
+    if (!out) {
+        return std::unexpected(AuditError(AuditErrc::Io, "write failed: " + out_path));
+    }
+    return {};
 }
 
 }  // namespace ingeneer::audit

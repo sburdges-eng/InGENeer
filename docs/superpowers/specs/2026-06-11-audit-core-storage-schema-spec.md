@@ -170,10 +170,12 @@ CREATE VIEW certified_snapshot AS
 
 Generation of any stamped/legal/certified deliverable reads **only** from
 `certified_snapshot`. `AI_PROPOSED` (and `REVIEWED`/`APPROVED`) entities are excluded by
-this data-model filter, satisfying R-2.4 without relying on UI. Phase 3.4 adds a snapshot
+this data-model filter, satisfying R-2.4 without relying on UI. A snapshot
 **materializer** that emits an immutable, hash-stamped export (its own genesis record) for
-reproducible deliverables; the materializer records a `SNAPSHOT` event in the product
-chain capturing the set of entity hashes included.
+reproducible deliverables — recording a `SNAPSHOT` event capturing the set of entity
+hashes included — is **DEFERRED past Phase 3 exit** (evaluator note N2, 2026-06-11): no
+deliverable pipeline exists yet to consume it. Target: the first phase that produces a
+stamped deliverable (Phase 9 ai_core integration or earlier if needed).
 
 ## 4. Agent-work chain (plan §2 / §3.5)
 
