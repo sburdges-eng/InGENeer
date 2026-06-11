@@ -163,6 +163,50 @@ defects** in the merged audit_core:
 Verified: 6/6 CTest × all four presets (dev/asan-ubsan/tsan/hardened) = 24/24; clang-format
 clean; numeric gate ✓; ruff ✓; pytest 173 ✓.
 
+## Session Addendum — 2026-06-11 (Phase 3 EXIT — evaluator sign-off recorded)
+
+Phase 3 exit work on `feat/phase3-exit` (after PR #19/#20 merged to main):
+
+**3.6 record reader (DONE):** `libs/audit_core/src/jsonl.cpp` — raw-token JSON parser
+(scalar bytes never reformatted; recursive key sort by decoded string = Python
+`sort_keys=True`), depth-bounded, strict UTF-8/escape/surrogate validation, JSONL chain
+verifier. Fuzzed: `fuzz_jsonl.cpp` + standalone CTest driver; **real libFuzzer (brew LLVM):
+3.78M + 2.4M execs under ASan+UBSan, zero crashes after fixes**. The fuzzer found a real
+defect in ~1s (raw invalid UTF-8 accepted → lossy re-escape); fixed by rejecting invalid
+UTF-8 exactly as Python `json.loads` does; committed as a regression test (evaluator N4).
+
+**§6 cross-language round trip (DONE, real `AuditLogger`):** `audit.roundtrip_python` CTest —
+C++ chain (incl. `Müller—测试`) verified by **Python `AuditLogger.verify_chain()`**, and a
+Python-`AuditLogger`-written chain verified by C++. `Store::export_jsonl` emits the exact
+Python line format. Payloads are now **canonicalized at append** (closes review HIGH-3) —
+unsorted caller keys can no longer diverge the hash.
+
+**3.3 property tests (DONE):** `test_property_authority.cpp` — exhaustive transition matrix
++ 500-op seeded agent storm, then **SQL invariants against storage itself**: no entity ≥
+APPROVED without a human-attributed promotion row; projection rebuild (replay promotion
+log) == entity table. `test_concurrency.cpp` (evaluator N3): two Stores, two threads, 100
+interleaved appends — all succeed, chain verifies, TSan-clean.
+
+**Evaluator sign-off (plan §1.1): APPROVE-WITH-NOTES** (independent agent, adversarial:
+rebuilt sanitizer trees itself, replayed the crash artifact, probed the hash contract).
+Notes disposition:
+- **N1 (Medium, fixed):** number tokens not Python-fixed-point ("1.50" → Python re-dumps
+  "1.5") broke cross-language verify. Now **enforced at append**: `python_float_repr`
+  replicates CPython float repr over shortest round-trip digits; non-fixed-point tokens
+  rejected (`is_python_number_token`, tested both polarities + store-level rejection).
+- **N2 (recorded):** spec §3.4 snapshot materializer DEFERRED past Phase 3 (spec updated).
+- **N3 (fixed):** two-writer serialization test added.
+- **N4 (fixed):** crash repro committed as regression test; loose artifact deleted.
+- **N5:** this addendum. Also added the evaluator's chain_id guard: `verify_chain` rejects
+  foreign-chain records ("one database == one chain").
+- Open (Info, logged): projection-equality test covers class+head_seq, not approved_by/at.
+
+**Phase 3 EXIT criteria:** fuzzed container/record reader ✓ · ASan/UBSan green ✓ (11/11 ×
+dev/asan-ubsan/tsan/hardened = 44/44) · chain-shape compatibility ✓ (real AuditLogger, both
+directions) · evaluator sign-off ✓ (APPROVE-WITH-NOTES, all actionable notes resolved).
+**Phase 3 is EXITED.** Remaining human items unchanged: licensed-professional identity ADR
+(spec §8), SHA-256 freeze confirmation.
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
