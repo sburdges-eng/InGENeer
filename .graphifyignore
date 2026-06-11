@@ -1,23 +1,23 @@
 # InGENeer Graphify first pass — code-only with root guidance docs
 *
 
-!AutonomAtIon/
+!docs/governance/autonomation/
 !icad-addin/
 !orchestrator/
 !schemas/
-!scripts/
+!tools/scripts/
 
-AutonomAtIon/*
+docs/governance/autonomation/*
 icad-addin/*
 orchestrator/*
 schemas/*
-scripts/*
+tools/scripts/*
 
-!AutonomAtIon/**
+!docs/governance/autonomation/**
 !icad-addin/**
 !orchestrator/**
 !schemas/**
-!scripts/**
+!tools/scripts/**
 
 !AGENTS.md
 !CLAUDE.md
