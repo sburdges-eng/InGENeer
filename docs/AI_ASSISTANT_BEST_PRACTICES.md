@@ -4,7 +4,7 @@
 
 Guidance for **choosing a tool tier** when working on InGENeer: validated intents, Python orchestrator, JSON contracts, and (later) a **separate** CAD execution workspace. Vendor **plan names and limits change**—revisit this doc when pricing or model cards update.
 
-**Non-negotiables for every tool:** follow [AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](../AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) and [AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](../AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md). Do not invent proprietary CAD APIs; keep orchestrator and CAD plugin contexts **air-gapped** when generating execution code (SOP 2).
+**Non-negotiables for every tool:** follow [docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](../docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) and [docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md](../docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md). Do not invent proprietary CAD APIs; keep orchestrator and CAD plugin contexts **air-gapped** when generating execution code (SOP 2).
 
 ---
 
@@ -69,7 +69,7 @@ Use for **tight implementation loops** on well-specified, local work:
 
 - Prefer **`ingenieer-run --phase validate_intent`** (or `--print-plan`) when an agent only needs to normalize or validate an envelope—avoid full `dispatch_execute` / `verify_result` unless the goal is an actual host round-trip.
 - Treat **`dry_run` / `preview`** and catalog **risk tiers** as the default path for exploratory or LLM-generated intents; **`execute` + high-risk** requires an operator-issued `humanConfirmationToken` (use CLI `--i-confirm` in automation).
-- **Air-gap:** do not load orchestrator + `icad-addin` into one generation context for execution code. Hand off **`schemas/cad_intent_envelope.schema.json` plus two sample JSON envelopes** (see `scripts/copy_schema_handoff.sh` output) the same way production does.
+- **Air-gap:** do not load orchestrator + `icad-addin` into one generation context for execution code. Hand off **`schemas/cad_intent_envelope.schema.json` plus two sample JSON envelopes** (see `tools/scripts/copy_schema_handoff.sh` output) the same way production does.
 
 ---
 

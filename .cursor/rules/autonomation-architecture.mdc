@@ -1,7 +1,7 @@
 ---
 description: AutonomAtIon architecture (InGENeer) — layers, phases, boundaries
 globs:
-  - AutonomAtIon/**/*
+  - docs/governance/autonomation/**/*
   - schemas/**/*
   - docs/**/*
   - orchestrator/**/*
@@ -14,8 +14,8 @@ You are editing artifacts governed by **domain isolation**: orchestrator code va
 
 ## Read first (full canon)
 
-- [AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) — rules 1–5, SOPs 2–6 (air gap, docs, modality, diffs, git bailout).
-- [AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md) — L0–L6 checklists, phase↔layer map, versioning table.
+- [docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) — rules 1–5, SOPs 2–6 (air gap, docs, modality, diffs, git bailout).
+- [docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md](docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md) — L0–L6 checklists, phase↔layer map, versioning table.
 
 ## Non-negotiables (summary)
 

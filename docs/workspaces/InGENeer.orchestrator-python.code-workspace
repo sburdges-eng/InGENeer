@@ -1,0 +1,104 @@
+{
+  "folders": [
+    {
+      "path": "../../orchestrator",
+      "name": "orchestrator (Python L1-L5)"
+    },
+    {
+      "path": "../../schemas",
+      "name": "schemas (intent + params)"
+    },
+    {
+      "path": "..",
+      "name": "docs (contract refs)"
+    },
+    {
+      "path": "../governance/autonomation",
+      "name": "governance (rules)"
+    },
+    {
+      "path": "../../tools",
+      "name": "tools (handoff tooling)"
+    }
+  ],
+  "settings": {
+    "search.followSymlinks": false,
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/bin/**": true,
+      "**/obj/**": true,
+      "**/.venv/**": true,
+      "**/venv/**": true,
+      "**/__pycache__/**": true,
+      "**/.pytest_cache/**": true,
+      "**/.mypy_cache/**": true,
+      "**/.ruff_cache/**": true,
+      "**/.agent-sessions/**": true,
+      "**/.claude/**": true,
+      "**/.codex/**": true,
+      "**/.gemini/**": true,
+      "**/.hermes/**": true,
+      "**/.next/**": true,
+      "**/.turbo/**": true,
+      "**/coverage/**": true,
+      "**/dist/**": true,
+      "**/graphify-out/**": true,
+      "**/worktrees/**": true,
+      "**/chaffee_county/**": true,
+      "**/audit_logs/**": true,
+      "**/ingenieer_out/**": true
+    },
+    "search.exclude": {
+      "**/bin": true,
+      "**/obj": true,
+      "**/.venv": true,
+      "**/venv": true,
+      "**/__pycache__": true,
+      "**/.pytest_cache": true,
+      "**/.mypy_cache": true,
+      "**/.ruff_cache": true,
+      "**/.agent-sessions": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.gemini": true,
+      "**/.hermes": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/coverage": true,
+      "**/dist": true,
+      "**/graphify-out": true,
+      "**/worktrees": true,
+      "**/chaffee_county": true,
+      "**/audit_logs": true,
+      "**/ingenieer_out": true
+    },
+    "files.exclude": {
+      "**/.agent-sessions": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.gemini": true,
+      "**/.hermes": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/coverage": true,
+      "**/dist": true,
+      "**/graphify-out": true,
+      "**/worktrees": true,
+      "**/chaffee_county": true,
+      "**/audit_logs": true,
+      "**/ingenieer_out": true
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder:orchestrator (Python L1-L5)}/.venv/bin/python",
+    "python.analysis.extraPaths": [
+      "${workspaceFolder:orchestrator (Python L1-L5)}/src"
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "charliermarsh.ruff",
+      "EditorConfig.EditorConfig"
+    ]
+  }
+}

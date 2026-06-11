@@ -2,7 +2,7 @@
 
 **How to use this doc:** Pick the layer you are touching, read its checklist, then change code or docs. **Full authority** for invariants and Cursor SOPs remains **[AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md)**—this file maps those rules to **concrete paths and pipeline steps**.
 
-**Cursor:** When you work under `AutonomAtIon/`, `schemas/`, `docs/`, `orchestrator/`, or `README.md`, the project rule **AutonomAtIon architecture (InGENeer)** auto-attaches (`.cursor/rules/autonomation-architecture.mdc`). If a chat has no matching files in context, open or `@`-mention one of those paths.
+**Cursor:** When you work under `docs/governance/autonomation/`, `schemas/`, `docs/`, `orchestrator/`, or `README.md`, the project rule **AutonomAtIon architecture (InGENeer)** auto-attaches (`.cursor/rules/autonomation-architecture.mdc`). If a chat has no matching files in context, open or `@`-mention one of those paths.
 
 **Model choice:** See [docs/AI_ASSISTANT_BEST_PRACTICES.md](../docs/AI_ASSISTANT_BEST_PRACTICES.md) for when to use Claude Max, Gemini Ultra, or Codex Pro on this repo.
 

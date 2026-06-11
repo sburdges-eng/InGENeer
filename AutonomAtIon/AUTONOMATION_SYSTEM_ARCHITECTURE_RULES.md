@@ -1,6 +1,6 @@
 # AutonomAtIon SYSTEM ARCHITECTURE RULES
 
-**Canonical location:** `AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` (this file).
+**Canonical location:** `docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` (this file).
 
 **Layered checklists (paths, phases, versioning):** [LAYERED_PRACTICE_PLAYBOOK.md](LAYERED_PRACTICE_PLAYBOOK.md).
 

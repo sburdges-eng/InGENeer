@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copy intent schema and sample envelopes for CAD-plugin / air-gapped workspaces (SOP 2).
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DEST="${1:-"$ROOT/handoff"}"
 mkdir -p "$DEST"
 cp "$ROOT/schemas/cad_intent_envelope.schema.json" "$DEST/"

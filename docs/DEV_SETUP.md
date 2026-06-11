@@ -40,7 +40,7 @@ No IntelliCAD/Carlson host is required for this build; projects are reference li
 ## Schema handoff (orchestrator ↔ CAD workspace)
 
 ```bash
-./scripts/copy_schema_handoff.sh
+./tools/scripts/copy_schema_handoff.sh
 ```
 
 Use the output bundle when working in a **separate** Cursor window or repo for C# host code (see architecture SOP 2).

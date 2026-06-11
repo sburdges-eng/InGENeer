@@ -24,5 +24,8 @@ D-numbers trace to the Architecture Discovery Interview (Rounds 1–3).
 | [0017](ADR-0017-decision-based-flywheel.md) | Decision-based learning flywheel | D18, D21 | Accepted |
 | [0018](ADR-0018-oda-dwg-codec.md) | DWG via ODA membership | D19 | Accepted |
 | [0019](ADR-0019-monorepo-layout-migration.md) | Monorepo layout & five-stage migration | Stage 1–5 | Accepted |
+| [0020](ADR-0020-oda-terms-verification.md) | ODA terms vs open-core structure (R-10) | R-10 | Accepted |
+| [0021](ADR-0021-open-core-license-apache-2.0.md) | Open Core license: Apache-2.0 | D7 | Accepted |
+| [0022](ADR-0022-stage1-relocation-ruling.md) | Stage 1 relocation ruling (Option C) | C-5.5 | Accepted |
 
 Rejected alternatives are recorded inside each ADR. Risk register: `../architecture/RISK_REGISTER.md`.

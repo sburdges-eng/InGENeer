@@ -1,6 +1,6 @@
 # ADR-0006 — Dual Market & Open-Core Licensing Boundary
 
-**Status:** Accepted (D6, D7). Final OSS license TBD (Apache-2.0 / BSD / MPL candidate — open question).
+**Status:** Accepted (D6, D7). Open Core license: **Apache-2.0** — see [ADR-0021](ADR-0021-open-core-license-apache-2.0.md).
 
 ## Decision
 **Market:** solo PLS / small firms (1–20 seats) first for adoption velocity; mid/large firms and enterprise second.

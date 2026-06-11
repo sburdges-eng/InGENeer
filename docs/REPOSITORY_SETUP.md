@@ -28,4 +28,4 @@ Checklist after creating the GitHub (or GitLab) remote—do once per hosting pro
 ## Optional
 
 - Add repository **topics** (e.g. `cad`, `orchestrator`, `python`, `dotnet`).
-- Require **CODEOWNERS** for `schemas/` and `AutonomAtIon/` when multiple teams touch contracts.
+- Require **CODEOWNERS** for `schemas/` and `docs/governance/autonomation/` when multiple teams touch contracts.

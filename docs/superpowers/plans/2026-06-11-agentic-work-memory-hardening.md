@@ -108,7 +108,7 @@ on_violation: revert branch, log drift report, request human review
 3. **Plan/act separation** — edit tools unlock only after a written plan exists for the slice.
 4. **2-strike rollback** (AutonomAtIon SOP 6) — model fails twice on the same bug → STOP, `git reset --hard`, new session, smaller slices.
 5. **Micro-diff audit** (SOP 5) — evaluator explicitly checks red lines for silently deleted guards.
-6. **Air-gap** (SOP 2) — orchestrator work and host-execution work never share one prompt/window; schema crosses via `scripts/copy_schema_handoff.sh`.
+6. **Air-gap** (SOP 2) — orchestrator work and host-execution work never share one prompt/window; schema crosses via `tools/scripts/copy_schema_handoff.sh`.
 7. **Worktree lanes** — parallel agents per docs/roadmap/WORKTREE_INDEX.md branch scheme; one lane = one goal = one model class per MODEL_LANGUAGE_ROUTING.md.
 8. **Oracle discipline** — TOTaLi frozen; engine results diffed against oracle fixtures in CI; oracle changes require drift reports.
 

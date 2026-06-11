@@ -16,9 +16,9 @@
 
 ## Architecture rules (AutonomAtIon)
 
-**[AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md)** — domain isolation, CAD threading, transactions, Cursor SOPs, naming (`InGENeer`, `AIrchetect`, `AutonomAtIon`).
+**[docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md)** — domain isolation, CAD threading, transactions, Cursor SOPs, naming (`InGENeer`, `AIrchetect`, `AutonomAtIon`).
 
-**[AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md)** — layer checklists (L0–L6), pipeline phase map, versioning. Cursor auto-attaches **`.cursor/rules/autonomation-architecture.mdc`** when you work under `AutonomAtIon/`, `schemas/`, `docs/`, `orchestrator/`, or this README.
+**[docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md](docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md)** — layer checklists (L0–L6), pipeline phase map, versioning. Cursor auto-attaches **`.cursor/rules/autonomation-architecture.mdc`** when you work under `docs/governance/autonomation/`, `schemas/`, `docs/`, `orchestrator/`, or this README.
 
 **[docs/AI_ASSISTANT_BEST_PRACTICES.md](docs/AI_ASSISTANT_BEST_PRACTICES.md)** — when to lean on **Claude Max**, **Gemini Ultra**, or **Codex Pro** for this repo (plus shared Cursor hygiene).  
 **[docs/MODEL_LANGUAGE_ROUTING.md](docs/MODEL_LANGUAGE_ROUTING.md)** — model × **language/folder** rules, routing matrix, and handoffs (Python orchestrator vs C# `icad-addin/` vs schema/docs).
@@ -32,4 +32,4 @@
 - **Bridge transport (HTTP + mock):** [`docs/BRIDGE_TRANSPORT.md`](docs/BRIDGE_TRANSPORT.md).
 - **CLI:** after `pip install -e ".[dev]"`, run `ingenieer-run --help` from the `orchestrator/` directory.
 
-The **reference C# host spike** lives under [`icad-addin/`](icad-addin/) (wire DTOs and MVP command stubs). Python uses **`bridge.mode`** `mock` (default) or `http` against `GET/POST /v1/...` on loopback. Intent envelope is **`schemaVersion` `1.1.0`** (`executionMode`, optional human confirmation for high-risk commands); use [`scripts/copy_schema_handoff.sh`](scripts/copy_schema_handoff.sh) to bundle schema + samples for CAD-side workspaces.
+The **reference C# host spike** lives under [`icad-addin/`](icad-addin/) (wire DTOs and MVP command stubs). Python uses **`bridge.mode`** `mock` (default) or `http` against `GET/POST /v1/...` on loopback. Intent envelope is **`schemaVersion` `1.1.0`** (`executionMode`, optional human confirmation for high-risk commands); use [`tools/scripts/copy_schema_handoff.sh`](tools/scripts/copy_schema_handoff.sh) to bundle schema + samples for CAD-side workspaces.

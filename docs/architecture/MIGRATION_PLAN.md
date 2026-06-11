@@ -1,10 +1,16 @@
 # Migration Plan — Strangler, Knowledge-First
 
-**Status:** Approved 2026-06-11. Execution requires implementation authorization (currently ON HOLD).
+**Status:** Approved 2026-06-11. Implementation authorized; Stage 1a executed per ADR-0022 (2026-06-11).
 **Rule (R9):** Migrate knowledge first. Migrate code second. Rewrite foundations when uncertain.
 
 ## Stage 1 — Create monorepo
-InGENeer repo becomes the monorepo root. Top level becomes exactly: `apps/ libs/ research/ docs/ tools/`. Nothing else. (Existing `orchestrator/`, `icad-addin/`, `schemas/` are relocated into the layout during Stages 2–3, not deleted.)
+InGENeer repo becomes the monorepo root.
+
+**Stage 1a (ADR-0022, done):** Create `apps/`, `libs/`, `research/` skeletons; move governance to `docs/governance/autonomation/`; move repo scripts to `tools/scripts/`.
+
+**Legacy exceptions (until Stage 3 exit):** `orchestrator/`, `icad-addin/`, `schemas/` may remain at top level during Stages 2–2.5 knowledge work.
+
+**Stage 1b exit:** Top level is exactly `apps/ libs/ research/ docs/ tools/` (plus dotfiles). Relocate the three legacy trees during/after Stage 3 triage; not deleted.
 
 ## Stage 2 — Import knowledge, not code
 Extract from TOTaLi, auracad, and legacy InGENeer into ADRs and `research/`: requirements, architecture, data models, experiments, lessons learned. Old repos contain valuable ideas inside unwanted architecture — take the ideas.

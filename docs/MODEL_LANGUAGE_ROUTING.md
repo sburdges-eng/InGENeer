@@ -4,16 +4,16 @@ Rules for **which assistant or tier to use** against **which languages and folde
 
 **Companion:** [AI_ASSISTANT_BEST_PRACTICES.md](AI_ASSISTANT_BEST_PRACTICES.md) (when to prefer Claude Max vs Gemini Ultra vs Codex Pro for *task shape*). This document adds **language and path** constraints.
 
-**Authority:** [AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](../AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md), [AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](../AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md).
+**Authority:** [docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](../docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md), [docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md](../docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md).
 
 ---
 
 ## Invariants (every model, every tier)
 
-1. **Python (`orchestrator/`, repo-root `scripts/*.py`):** orchestration, validation, transport, audit only. **No B-rep geometry** and no proprietary CAD API calls.
+1. **Python (`orchestrator/`, repo-root `tools/scripts/*.py`):** orchestration, validation, transport, audit only. **No B-rep geometry** and no proprietary CAD API calls.
 2. **C# (`icad-addin/`):** deterministic bridge and host-side execution. **No LLM calls** in shipping add-in code. **No guessed** IntelliCAD/Carlson/Autodesk APIs—use official docs or `// TODO` with a snippet request.
 3. **JSON Schema (`schemas/`):** must stay aligned with Pydantic/models and [INTENT_COMMAND_CATALOG.md](INTENT_COMMAND_CATALOG.md); bump `schemaVersion` on breaking envelope changes.
-4. **Air-gap (SOP 2):** do not ask any model to “do orchestrator + real C# host execution” in one shot. Pass **schema + sample envelopes** across the boundary the same way production does ([scripts/copy_schema_handoff.sh](../scripts/copy_schema_handoff.sh)).
+4. **Air-gap (SOP 2):** do not ask any model to “do orchestrator + real C# host execution” in one shot. Pass **schema + sample envelopes** across the boundary the same way production does ([tools/scripts/copy_schema_handoff.sh](../tools/scripts/copy_schema_handoff.sh)).
 5. **Preserve guards:** do not remove rollback, logging, fingerprint checks, or transaction discipline to “simplify” diffs.
 
 ---
@@ -24,9 +24,9 @@ Rules for **which assistant or tier to use** against **which languages and folde
 |------|-----------|------|
 | Orchestrator | Python | Phases, contracts, wire, bridge client, CLI, tests under `orchestrator/tests/` |
 | Contracts at rest | JSON | `schemas/*.schema.json` |
-| Narrative rules | Markdown | `AutonomAtIon/`, `docs/`, root `README.md` |
+| Narrative rules | Markdown | `docs/governance/autonomation/`, `docs/`, root `README.md` |
 | Host reference | C#, `.csproj`, solution | `icad-addin/` (DTOs, loopback host, future iCAD add-in) |
-| Glue | Shell | `scripts/*.sh` (handoff, local automation) |
+| Glue | Shell | `tools/scripts/*.sh` (handoff, local automation) |
 
 ---
 

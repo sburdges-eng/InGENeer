@@ -37,4 +37,4 @@ ingeneer/
 > Migration strategy: strangler pattern. Migrate knowledge first. Migrate code second. Rewrite foundations when uncertain.
 
 ## Consequences
-TOTaLi stays shippable as the reference oracle until engine parity; auracad and old InGENeer code become archives at Stage 5; existing InGENeer top-level content (orchestrator/, icad-addin/, schemas/) is restructured into the layout during Stage 2–3 under implementation authorization (currently ON HOLD).
+TOTaLi stays shippable as the reference oracle until engine parity; auracad and old InGENeer code become archives at Stage 5; existing InGENeer top-level content (orchestrator/, icad-addin/, schemas/) remains as **legacy exceptions** until Stage 3 exit per [ADR-0022](ADR-0022-stage1-relocation-ruling.md); Stage 1a (governance + scripts + skeletons) complete 2026-06-11.

@@ -2,7 +2,7 @@
 
 This document distills **portable** conventions from the AutonomAtIon governance docs so they apply consistently across **Python orchestrator**, **C# bridge / host**, **schemas**, and **docs**—and so you can **reuse the same files** when spinning up sibling products (e.g. AIrchetect) or a separate CAD workspace.
 
-**Authority for product rules:** [AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](../AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md), [AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](../AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md).  
+**Authority for product rules:** [docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](../docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md), [docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md](../docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md).  
 **Local dev versions:** [DEV_SETUP.md](DEV_SETUP.md) (Python 3.11+, .NET 10.x).
 
 ---
@@ -18,6 +18,7 @@ This document distills **portable** conventions from the AutonomAtIon governance
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | Parity: gitleaks, `ruff check`, `pytest`, `dotnet build`; **workflow_dispatch**; NuGet cache on the .NET job. |
 | [`.vscode/`](../.vscode/) | Recommended extensions (Python, C#, EditorConfig), tasks (ruff, pytest, dotnet build), settings aligned with `.editorconfig`. |
 | [`InGENeer.code-workspace`](../InGENeer.code-workspace) | Multi-root workspace for orchestrator, `icad-addin`, schemas, docs, AutonomAtIon, scripts — limits IDE scope (see `~/Dev/DEV_OPS_RUNBOOK.md` when using a parent monorepo). |
+| [`docs/WORKSPACE_SCOPE_MAP.md`](WORKSPACE_SCOPE_MAP.md) + [`docs/workspaces/`](workspaces/) | Scoped Cursor workspaces for architecture/docs, agentic planning, Python orchestrator, C# host, contracts/schemas, governance, and repo ops. Open the narrowest workspace matching the task; never open `~/Dev`. |
 | [`AGENTS.md`](../AGENTS.md) | Single entrypoint for coding agents; links governance and worktrees. |
 
 ---
@@ -29,7 +30,7 @@ These are not single keys in a config file; they are **non-negotiable practices*
 1. **Domain isolation** — Orchestrator (Python): validation, transport, audit; **no** B-rep geometry or proprietary CAD APIs. CAD execution (C# / future FreeCAD worker): deterministic only; **no** LLM in shipping execution code.
 2. **Threading and transactions** — UI-thread marshaling for host mutations; native transactions with explicit rollback; never strip error handling to “clean up.”
 3. **No API hallucinations** — `// TODO` + doc citation when vendor APIs are uncertain.
-4. **Air-gapped workspaces (SOP 2)** — Separate Cursor/context for orchestrator vs host; hand off **schema + sample JSON** like production ([`scripts/copy_schema_handoff.sh`](../scripts/copy_schema_handoff.sh)).
+4. **Air-gapped workspaces (SOP 2)** — Separate Cursor/context for orchestrator vs host; hand off **schema + sample JSON** like production ([`tools/scripts/copy_schema_handoff.sh`](../tools/scripts/copy_schema_handoff.sh)).
 5. **Cursor hygiene (SOPs 4–6)** — Right modality for the task; micro-diff audit; commit before big generations; reset after repeated failure.
 
 **Model × language routing:** [MODEL_LANGUAGE_ROUTING.md](MODEL_LANGUAGE_ROUTING.md), [AI_ASSISTANT_BEST_PRACTICES.md](AI_ASSISTANT_BEST_PRACTICES.md).
@@ -53,4 +54,4 @@ These are not single keys in a config file; they are **non-negotiable practices*
 | Intent envelope | `schemaVersion` in JSON / `CadIntentEnvelope` | Envelope shape breaks |
 | Outer wire payloads | `ingenieer.contracts.SCHEMA_VERSION` | Outer contract shape breaks |
 
-Details: [LAYERED_PRACTICE_PLAYBOOK.md](../AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md) versioning table, [INTENT_COMMAND_CATALOG.md](INTENT_COMMAND_CATALOG.md).
+Details: [LAYERED_PRACTICE_PLAYBOOK.md](../docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md) versioning table, [INTENT_COMMAND_CATALOG.md](INTENT_COMMAND_CATALOG.md).

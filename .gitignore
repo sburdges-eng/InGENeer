@@ -1,5 +1,6 @@
 .DS_Store
 .venv/
+.venv*/
 venv/
 __pycache__/
 *.py[cod]
@@ -15,3 +16,12 @@ __pycache__/
 handoff/
 # Local orchestrator audit trail (not for version control)
 orchestrator/audit_logs/
+# Large geodata and binary files
+chaffee_county/
+*.gpkg
+*.geojson
+*.pdf
+# Worktrees
+worktrees/
+# Local Cursor hook audit log (notifications still fire; log is machine-local)
+.cursor/hooks/state/
