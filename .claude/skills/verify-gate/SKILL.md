@@ -13,7 +13,7 @@ runs the domain-isolation greps (Rule 1) and the contract-sync drift check.
 From the repo root:
 
 ```bash
-./scripts/verify_gate.sh
+./tools/scripts/verify_gate.sh
 ```
 
 Flags:
