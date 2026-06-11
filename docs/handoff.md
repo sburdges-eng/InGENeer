@@ -131,6 +131,38 @@ future ADRs proposed as 0026 (ABI) / 0027 (sync).
 **Gates this session:** ruff ✓ · pytest 173 passed/1 skipped ✓ · ctest 4/4 (dev + asan-ubsan) ✓ ·
 clang-format ✓ · check_numeric_flags ✓. No C# touched (dotnet unaffected). No schemas touched.
 
+## Session Addendum — 2026-06-11 (debug & refactor: audit_core hardening)
+
+PR #19 merged to main (CI green: dotnet/contract-sync/pytest/gitleaks). Then a debug +
+refactor pass on `refactor/audit-core-hardening`: full diagnostic battery (tsan + hardened
+presets, clang-tidy, independent adversarial code review) found and fixed **4 CRITICAL
+defects** in the merged audit_core:
+
+- **CRIT-3 ensure_ascii parity** (worst): Python `json.dumps` defaults to
+  `ensure_ascii=True`; the C++ `json_escape` passed UTF-8 through raw → cross-language hash
+  divergence on ANY non-ASCII payload. Fixed with a full UTF-8 → `\uXXXX`/surrogate-pair
+  encoder (malformed bytes → U+FFFD deterministically); non-ASCII Python oracle vector
+  (`Müller—测试` → `fd9ceeec…`) pinned in test_canonical. Spec §3.1 hash definition corrected
+  (it wrongly said "compact separators").
+- **CRIT-1 NULL-column UB**: `sqlite3_column_text` NULL fed to `std::string` in
+  verify_chain/certified_snapshot → crash on corrupted/adversarial DB. Fixed via NULL-safe
+  `col_text`; NULL now reports "corrupted database" distinct from hash tampering (forensics).
+- **CRIT-2 ignored prepare rcs**: NULL stmt → UB + stuck transactions. Fixed via RAII `Stmt`
+  (checked prepare, unconditional finalize).
+- **CRIT-4 dangling transaction on failed COMMIT**: bricked the Store. Fixed via RAII `Txn`
+  (rollback on scope exit; failed COMMIT also rolls back).
+- HIGH: `sqlite3_close_v2` (no handle leak); `sqlite3_open_v2` explicit mode; **H-21 writer
+  mutex now actually implemented** (was a doc claim only). API: `Store::open(path, chain_id)`
+  — chain_id ("project_id") is store-owned; events no longer abuse entity_id as chain scope.
+- MED-2 ruled intentional: agents MAY create/promote at REVIEWED (spec §3.3 binds humans to
+  APPROVED+ only); now documented in the header.
+- CMake: `-fstack-clash-protection` gated on real compiler support (Apple clang ignores it).
+- **Real libFuzzer run** (brew LLVM, direct compile — CMake+brew-LLVM has an SDK header
+  mismatch): **1,354,073 coverage-guided executions / 60s under ASan+UBSan, zero crashes.**
+
+Verified: 6/6 CTest × all four presets (dev/asan-ubsan/tsan/hardened) = 24/24; clang-format
+clean; numeric gate ✓; ruff ✓; pytest 173 ✓.
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
