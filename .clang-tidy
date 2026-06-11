@@ -1,0 +1,22 @@
+# InGENeer C++ engines (libs/). Phase 2.3 static-analysis gate (§3.7).
+# Run diff-only in CI against changed translation units; compile_commands.json is exported
+# by the superbuild (CMAKE_EXPORT_COMPILE_COMMANDS=ON).
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  cppcoreguidelines-*,
+  clang-analyzer-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -misc-include-cleaner
+WarningsAsErrors: ''
+HeaderFilterRegex: 'libs/.*'
+FormatStyle: file

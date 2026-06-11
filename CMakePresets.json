@@ -1,0 +1,50 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Dev (Debug, warnings-as-info)",
+      "binaryDir": "${sourceDir}/build/dev",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "hardened",
+      "displayName": "Hardened (Release + OpenSSF flags)",
+      "binaryDir": "${sourceDir}/build/hardened",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "INGENEER_HARDENED": "ON"
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "displayName": "ASan + UBSan (Debug)",
+      "binaryDir": "${sourceDir}/build/asan-ubsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "INGENEER_ASAN_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "ThreadSanitizer (Debug)",
+      "binaryDir": "${sourceDir}/build/tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "INGENEER_TSAN": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "hardened", "configurePreset": "hardened" },
+    { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
+    { "name": "tsan", "configurePreset": "tsan" }
+  ],
+  "testPresets": [
+    { "name": "dev", "configurePreset": "dev", "output": { "outputOnFailure": true } },
+    { "name": "asan-ubsan", "configurePreset": "asan-ubsan", "output": { "outputOnFailure": true } },
+    { "name": "tsan", "configurePreset": "tsan", "output": { "outputOnFailure": true } }
+  ]
+}

@@ -30,6 +30,11 @@ chaffee_county/
 *.gpkg
 *.geojson
 *.pdf
+# CMake build trees (engines under libs/; regenerable via CMakePresets.json)
+build/
+# Local audit test sidecars
+*.sqlite-wal
+*.sqlite-shm
 # Worktrees
 worktrees/
 # Local Cursor hook audit log (notifications still fire; log is machine-local)
