@@ -1,5 +1,9 @@
 """Tests for LLM intent generator with mock Anthropic client."""
 
+import pytest
+
+pytest.importorskip("ingenieer.intent_generator")
+
 import json
 from unittest.mock import MagicMock, patch
 
