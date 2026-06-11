@@ -18,13 +18,13 @@ enum class AuthorityClass : int {
 
 enum class ActorKind { Human, Agent };
 
-// One appended chain record (spec §3.1). `payload_json` MUST be canonical JSON supplied by
-// the caller; the store does not reparse it. `chain_id` is project_id (product chain) or a
-// session scope (agent-work chain).
+// One appended chain record (spec §3.1). `payload_json` MUST be canonical JSON in the
+// frozen Python convention (json.dumps sort_keys=True separators, ensure_ascii escaping);
+// the store embeds it verbatim and does not reparse it. The chain id ("project_id" in the
+// canonical record) is owned by the Store, not the event.
 struct Event {
     std::string event_type;
     std::string payload_json = "{}";
-    std::string chain_id;
     std::string timestamp;  // RFC3339 UTC, injected by caller (determinism, C-4.6)
 };
 

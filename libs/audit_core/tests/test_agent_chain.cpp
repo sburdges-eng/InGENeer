@@ -23,7 +23,7 @@ static void run() {
     cleanup(agent_path);
 
     // Product chain: a real entity is created (authority-bearing).
-    auto product = Store::open(product_path);
+    auto product = Store::open(product_path, "proj");
     CHECK(product.has_value());
     CreateEntityRequest e{};
     e.entity_id = "E1";
@@ -34,25 +34,21 @@ static void run() {
     CHECK(product->create_entity(e).has_value());
 
     // Agent-work chain: a SEPARATE db. Only append() — never create_entity/promote.
-    auto agent = Store::open(agent_path);
+    auto agent = Store::open(agent_path, "sess-1");
     CHECK(agent.has_value());
 
-    CHECK(agent
-              ->append({"SESSION_START", "{\"goal\": \"phase-3.5\"}", "sess-1",
-                        "2026-06-11T00:00:00+00:00"})
+    CHECK(agent->append({"SESSION_START", "{\"goal\": \"phase-3.5\"}", "2026-06-11T00:00:00+00:00"})
               .has_value());
     CHECK(agent
               ->append({"FEATURE_RESULT", "{\"feature\": \"agent_chain\", \"pass\": true}",
-                        "sess-1", "2026-06-11T00:01:00+00:00"})
+                        "2026-06-11T00:01:00+00:00"})
               .has_value());
 
     // Consolidation MVP: extract a summary and append it, then a handoff marker.
-    auto consolidate = agent->append({"CONSOLIDATION", "{\"events\": 2, \"features_passed\": 1}",
-                                      "sess-1", "2026-06-11T00:02:00+00:00"});
+    auto consolidate = agent->append(
+        {"CONSOLIDATION", "{\"events\": 2, \"features_passed\": 1}", "2026-06-11T00:02:00+00:00"});
     CHECK(consolidate.has_value());
-    CHECK(agent
-              ->append(
-                  {"HANDOFF", "{\"next\": \"phase-3.6\"}", "sess-1", "2026-06-11T00:03:00+00:00"})
+    CHECK(agent->append({"HANDOFF", "{\"next\": \"phase-3.6\"}", "2026-06-11T00:03:00+00:00"})
               .has_value());
 
     // Both chains verify independently (offline, R-2.6).
