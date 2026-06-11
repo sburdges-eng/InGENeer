@@ -4,7 +4,7 @@
 > **GATE:** Implementation is ON HOLD (C-5.1). Sections 0–8 of this document are governance/design and may be reviewed now. Sections 9–10 (phased execution) require explicit implementation authorization; the sole exception is Phase 0 items 0.1/0.5 (documentation artifacts only) IF a human records a scoped documentation-only approval in docs/handoff.md first. Phase 0 items 0.2–0.4 are tooling implementation and remain under the hold. This plan does not itself grant authorization.
 
 **Date:** 2026-06-11
-**Status:** Draft for human review (pre-authorization planning artifact)
+**Status:** Final (evaluator-reviewed APPROVE-WITH-FIXES, all fixes applied; grounding verified against the full governance package 2026-06-11). Awaiting implementation authorization (C-5.1).
 **Scope:** How agents work on InGENeer without drift; how agent memory and the product learning flywheel are built; C++23 engineering rules and hardening; risk hardening for implementation hiccups.
 
 **Goal:** A complete, mechanically-enforced system for multi-session agentic implementation of Architecture Baseline V1 — where drift is detected by validators (not vibes), memory is event-sourced off the audit chain, and the C++ core is hardened from day one.
@@ -18,6 +18,8 @@
 ## 0. Authority & Source Documents
 
 Read order for any session (handoff.md rule): `docs/handoff.md` → `docs/architecture/ARCHITECTURE.md` → `docs/adr/README.md` → `docs/architecture/CONSTRAINTS.md`.
+
+Grounding set (all binding on this and every future plan): the read-order docs plus `docs/architecture/REQUIREMENTS.md`, `docs/architecture/RISK_REGISTER.md`, `docs/architecture/MIGRATION_PLAN.md`. Plans in this repo are made from these documents — every plan item cites the C-/req R-/risk R-/migration-stage ID it serves, and conflicts raise drift reports (C-5.2) rather than being silently resolved.
 
 Binding rules referenced throughout:
 
@@ -292,7 +294,7 @@ Golden fixtures extracted from TOTaLi surface pipeline: given points + breakline
 5. **RHI seam (C-4.4):** all of the above behind the internal RHI interface; engines expose renderer-friendly layouts (SoA, page-aligned) as a design constraint from day one — this is exactly why ADR-0015 rejected an OpenGL interim.
 6. **CoreML/ANE coexistence:** inference and rendering on separate queues; shared unified memory means feature tensors also need no copies; queue priorities so batch AI jobs don't starve the viewport.
 
-Reference MSL kernel shape (frustum classify) and Swift dispatch retained in research digest; spike code goes under `tools/spikes/` post-authorization, never in libs/.
+Reference MSL kernel shape (frustum classify) and Swift dispatch retained in the research digest (`docs/superpowers/research/2026-06-11-technical-research-digest.md` §E); spike code goes under `tools/spikes/` post-authorization, never in libs/.
 
 ---
 
@@ -353,6 +355,23 @@ Extends RISK_REGISTER.md with implementation-level risks (register IDs unchanged
 | H-25 | Dependency supply-chain drift (agent "helpfully" bumping CDT/GEOS/PDAL etc.) | All third-party deps pinned by content hash (submodule SHA / FetchContent URL_HASH / lockfile); CI fails on unpinned fetch; bumps are explicit plan slices with changelog review |
 | H-26 | Merge contention on mandatory shared files (handoff.md, feature_list.json) across parallel lanes | Per-lane handoff sections (or docs/handoff/<lane>.md rolled up by harness); per-suite feature_list shards merged mechanically; integration lane owns roll-up; defined rebase cadence |
 | H-27 | Swift/ARC + zero-copy buffer lifetime hazards (bytesNoCopy over C++-owned pages; realloc while frame in flight; Coordinator retain cycles) | Buffer lifetime contract: C++ arena outlives all MTLBuffers referencing it; generation-stamped handles invalidate in-flight encoders on realloc; bytesNoCopy deallocator is a no-op that notifies the arena; Coordinator holds renderer strongly, view weakly; Phase 4 spike must include a realloc-under-render test |
+
+### 8.1 Risk-register coverage (all 12 register risks accounted for)
+
+| Register risk | This plan's posture |
+|---|---|
+| risk R-1 rewrite scope | Knowledge-first gating: Phase 2.5 blocks Phases 3/5 (C-5.3); oracle discipline (§4.3, H-10); bite-sized gated phases with CI-green exits |
+| risk R-2 authority creep | Phase 3.3/3.4 storage-layer enforcement + property tests ("no path promotes without human-attributed action"); §6 AI-layer rules |
+| risk R-3 forkability | Accepted business risk per register; plan builds the flywheel moat substrate (§2.5) — no further plan action required |
+| risk R-4 DWG licensing | Resolved in register; residual carried as risk R-10 below |
+| risk R-5 sync creep | H-18; Phase 10 sync conflict model is spec-first only — no sync implementation in this plan |
+| risk R-6 local model gap | Phase 9 local-first with per-project cloud opt-in (req R-5.2/C-3.3); monitored — not implementation-gating |
+| risk R-7 CGAL exposure | Resolved in register; §4.1 license guardrail + H-8 prevent reintroduction |
+| risk R-8 flywheel vs confidentiality | Resolved in register; §2.5 privacy filter + H-13 attestation enforce it mechanically |
+| risk R-9 TIN hard 20% | H-5; Phase 6 in its entirety; oracle parity exit criterion |
+| risk R-10 ODA terms | H-9; Phase 1.1 gate before any interop_core spec |
+| risk R-11 Swift interop | H-7; Phase 4 spike with pre-approved Obj-C++ fallback |
+| risk R-12 regulator acceptance | Business/strategy — explicitly Out of Scope here; the technical substrate (auditability-first authority system, Phase 3) is this plan's contribution |
 
 ---
 
