@@ -27,5 +27,8 @@ D-numbers trace to the Architecture Discovery Interview (Rounds 1–3).
 | [0020](ADR-0020-oda-terms-verification.md) | ODA terms vs open-core structure (R-10) | R-10 | Accepted |
 | [0021](ADR-0021-open-core-license-apache-2.0.md) | Open Core license: Apache-2.0 | D7 | Accepted |
 | [0022](ADR-0022-stage1-relocation-ruling.md) | Stage 1 relocation ruling (Option C) | C-5.5 | Accepted |
+| [0023](ADR-0023-totali-oracle-discipline.md) | TOTaLi oracle discipline (frozen semantics, fixtures) | Stage 2 | Accepted |
+| [0024](ADR-0024-stage2-component-triage.md) | Stage 2 component triage (promote vs rewrite) | Stage 2 | Accepted |
+| [0025](ADR-0025-swift-cpp-interop-direct-c-abi.md) | Swift↔C++ interop: direct C ABI, zero-copy buffers | R-11, A-6 | Accepted |
 
 Rejected alternatives are recorded inside each ADR. Risk register: `../architecture/RISK_REGISTER.md`.

@@ -76,9 +76,71 @@ Stage 2 knowledge extraction **recorded**:
 - **ADR-0023** — TOTaLi oracle discipline (frozen semantics, fixture metadata)
 - **ADR-0024** — Stage 2 component triage (promote vs rewrite)
 
+## Session Addendum — 2026-06-11 (Phases 2.2/2.3, 3.1–3.4, 4, 10 — implementation session)
+
+Autonomous implementation session. **Changes are staged in the working tree, NOT committed**
+(awaiting owner approval per repo policy). All gates run locally green.
+
+**Phase 3.1 — audit_core storage spec (DONE):**
+`docs/superpowers/specs/2026-06-11-audit-core-storage-schema-spec.md` — SQLite WAL + single-writer
+(H-21); `event`/`entity`/`promotion` schema; frozen SHA-256 canonical record (ADR-0023 oracle
+discipline); storage-layer authority guards (C-1.1/R-2.3); Certified Snapshot (R-2.4/2.5);
+two-chains model (§2). Two human decisions flagged (licensed-identity boundary; SHA-256 freeze).
+
+**Phase 2.2 — CMake superbuild (DONE):** root `CMakeLists.txt`, `CMakePresets.json`
+(dev/hardened/asan-ubsan/tsan), `libs/CMakeLists.txt`. C-4.2 forbidden-flag guard at configure
+time. `libs/` wired only for ready modules (no placeholder targets — C-5.4).
+
+**Phase 2.3 — gates (DONE):** `.clang-format`, `.clang-tidy`, `tools/scripts/check_numeric_flags.sh`
+(C-4.2 fast-math grep over compile_commands.json). `build/` + sqlite sidecars gitignored.
+
+**Phase 3.2–3.6 — audit_core C++ implementation (DONE; evaluator sign-off pending):**
+`libs/audit_core/` — self-contained SHA-256 (FIPS vectors pass; no OpenSSL/CommonCrypto, C-4.1),
+canonical record, `Store` (append/create_entity/promote/verify_chain/certified_snapshot) over
+SQLite with append-only triggers + `std::expected` errors (C-4.5). **6 CTest suites pass under
+`dev` AND `asan-ubsan` (0 failures).** Guards proven by test: agent cannot APPROVE/CERTIFY
+(AuthorityViolation); stale head_seq → ConcurrencyConflict; tamper → ChainBroken; AI_PROPOSED
+excluded from snapshot.
+- **3.5 agent-work chain (DONE):** `test_agent_chain.cpp` — same chaining code, separate db,
+  no product authority, consolidation MVP (session→CONSOLIDATION→handoff), independent verify.
+- **3.6 fuzzing (DONE):** `fuzz/fuzz_canonical.cpp` (`LLVMFuzzerTestOneInput`) + deterministic
+  `standalone_main.cpp` driver (200k iterations, ASan/UBSan-clean). Real libFuzzer binary builds
+  under `-DINGENEER_FUZZ=ON` (needs a libFuzzer runtime — Apple clang ships none; Linux CI / brew
+  LLVM has it).
+- **§6 cross-language parity (DONE):** C++ canonical record is now BYTE-IDENTICAL to Python
+  `audit.py` (json.dumps sort_keys default separators); two Python-generated SHA-256 oracle
+  vectors pinned in `test_canonical.cpp`. Remaining nicety: a full JSONL round-trip test (write in
+  C++, verify in Python) — the hash oracle already proves the encoding parity.
+- **Remaining for Phase 3 EXIT:** evaluator sign-off (generator/evaluator separation, plan §1.1)
+  — a process gate, not code.
+
+**Phase 4 — Swift↔C++ interop spike (DONE):** `tools/spikes/interop/` runnable spike
+(`./run.sh`). Measured: **pure FFI dispatch ≈ 0.7 ns/call**, zero-copy buffer sharing confirmed,
+generation-stamp invalidation (H-27) works. → **ADR-0025** (direct C ABI; no Obj-C++ shim; A-6
+holds; R-11 mitigated for CPU path). Render-path Metal `bytesNoCopy` + realloc-under-render test
+deferred to Phase 8.
+
+**Phase 10 — specs (DONE, spec-first):**
+`docs/superpowers/specs/2026-06-11-plugin-sdk-abi-spec.md` (hourglass C ABI; deny-by-default
+capabilities; no certify primitive) and `2026-06-11-sync-conflict-model-spec.md` (command-log-replay
+over A-9; authority-aware non-auto-merge; per-replica hash-DAG). Both list human sign-off items;
+future ADRs proposed as 0026 (ABI) / 0027 (sync).
+
+**ADR index:** added 0023/0024 rows (were missing) + 0025 (interop).
+
+**Gates this session:** ruff ✓ · pytest 173 passed/1 skipped ✓ · ctest 4/4 (dev + asan-ubsan) ✓ ·
+clang-format ✓ · check_numeric_flags ✓. No C# touched (dotnet unaffected). No schemas touched.
+
 ## Next Actions
-1. **Phase 4 / R-11** — Swift↔C++ interop spike at viewport rates.
-2. **Phase 3** — `audit_core` + Entity Authority storage spec (gated: 2.5 exit ✓).
-3. **Phase 2.2** — CMake superbuild skeleton when starting C++ `libs/` implementation.
-4. **Business** — Budget ODA Sustaining membership before paid DWG distribution.
-5. Every session: C-5.2 drift check; ruff/pytest green before merge.
+
+1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
+   ADR-0025). Scoped commits per repo policy (`git commit -- <paths>`).
+2. **Phase 3 finish** — 3.5 agent-work chain + consolidation MVP; 3.6 libFuzzer reader; pin the
+   cross-language SHA-256 parity fixture (spec §6); evaluator sign-off for Phase 3 exit.
+3. **Two human decisions** from the 3.1 spec §8: licensed-professional identity boundary; confirm
+   SHA-256 as the frozen chain hash.
+4. **Phase 8 prereq** — Metal `bytesNoCopy` + realloc-under-render test to fully close R-11.
+5. **Promote Phase 10 specs to ADRs** (0026 ABI / 0027 sync) after owner sign-off on their open
+   questions.
+6. **Business** — Budget ODA Sustaining membership before paid DWG distribution.
+7. Every session: C-5.2 drift check; ruff/pytest/ctest green before merge.
