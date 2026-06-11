@@ -1,0 +1,31 @@
+{
+  "project": "InGENeer Platform (working name; branding TBD: TOTALI / AuraCAD / InGENeer)",
+  "baseline": "V1",
+  "baseline_approved": "2026-06-11",
+  "architecture_status": "APPROVED_AS_BASELINE_V1",
+  "implementation_status": "ON_HOLD",
+  "documentation_status": "APPROVED",
+  "next_gate": "Architecture package review before implementation authorization",
+  "monorepo_root": "InGENeer",
+  "decisions": {
+    "accepted": ["D1","D3","D4","D5","D6","D7","D8","D9","D10","D11","D12","D13","D14","D15","D16","D17","D18","D19","D20","D21","D22"],
+    "superseded": [{"id": "D2", "by": "ADR-0001", "note": "three-repo topology superseded by monorepo"}]
+  },
+  "adrs": 19,
+  "risks_open": ["R-1","R-3","R-5","R-6","R-9","R-10","R-11","R-12"],
+  "risks_resolved": ["R-4","R-7","R-8"],
+  "open_questions": [
+    "Plugin SDK ABI strategy",
+    "Sync-service conflict model",
+    "Aura Intelligence agent decomposition",
+    "Final branding",
+    "Board/DOT/court acceptance strategy",
+    "ODA terms verification (R-10)",
+    "Open Core license selection (Apache-2.0/BSD/MPL)"
+  ],
+  "legacy_repos": {
+    "TOTaLi": {"role": "reference oracle, knowledge source", "status": "shipping, semantics frozen for oracle use"},
+    "auracad": {"role": "component/knowledge source", "status": "read-only reference pending Stage 3 triage"},
+    "InGENeer(legacy content)": {"role": "becomes monorepo root", "status": "restructure pending implementation authorization"}
+  }
+}
