@@ -1,0 +1,99 @@
+{
+  "folders": [
+    {
+      "path": "../../schemas",
+      "name": "schemas (JSON contracts)"
+    },
+    {
+      "path": "../../orchestrator/src/ingenieer",
+      "name": "orchestrator contract code"
+    },
+    {
+      "path": "../../orchestrator/tests",
+      "name": "orchestrator contract tests"
+    },
+    {
+      "path": "..",
+      "name": "docs (catalog + API reference)"
+    },
+    {
+      "path": "../../tools",
+      "name": "tools (schema handoff)"
+    }
+  ],
+  "settings": {
+    "search.followSymlinks": false,
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/bin/**": true,
+      "**/obj/**": true,
+      "**/.venv/**": true,
+      "**/venv/**": true,
+      "**/__pycache__/**": true,
+      "**/.pytest_cache/**": true,
+      "**/.mypy_cache/**": true,
+      "**/.ruff_cache/**": true,
+      "**/.agent-sessions/**": true,
+      "**/.claude/**": true,
+      "**/.codex/**": true,
+      "**/.gemini/**": true,
+      "**/.hermes/**": true,
+      "**/.next/**": true,
+      "**/.turbo/**": true,
+      "**/coverage/**": true,
+      "**/dist/**": true,
+      "**/graphify-out/**": true,
+      "**/worktrees/**": true,
+      "**/chaffee_county/**": true,
+      "**/audit_logs/**": true,
+      "**/ingenieer_out/**": true
+    },
+    "search.exclude": {
+      "**/bin": true,
+      "**/obj": true,
+      "**/.venv": true,
+      "**/venv": true,
+      "**/__pycache__": true,
+      "**/.pytest_cache": true,
+      "**/.mypy_cache": true,
+      "**/.ruff_cache": true,
+      "**/.agent-sessions": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.gemini": true,
+      "**/.hermes": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/coverage": true,
+      "**/dist": true,
+      "**/graphify-out": true,
+      "**/worktrees": true,
+      "**/chaffee_county": true,
+      "**/audit_logs": true,
+      "**/ingenieer_out": true
+    },
+    "files.exclude": {
+      "**/.agent-sessions": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.gemini": true,
+      "**/.hermes": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/coverage": true,
+      "**/dist": true,
+      "**/graphify-out": true,
+      "**/worktrees": true,
+      "**/chaffee_county": true,
+      "**/audit_logs": true,
+      "**/ingenieer_out": true
+    },
+    "json.schemaDownload.enable": true
+  },
+  "extensions": {
+    "recommendations": [
+      "EditorConfig.EditorConfig"
+    ]
+  }
+}

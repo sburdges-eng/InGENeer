@@ -142,7 +142,7 @@ Threat model: loopback assumes a **trusted local machine**; tokens are not a sub
 
 ## Schema handoff for CAD workspaces
 
-Run [`scripts/copy_schema_handoff.sh`](../scripts/copy_schema_handoff.sh) to emit `schemas/cad_intent_envelope.schema.json` and sample envelopes into `./handoff/` (gitignored) for paste-in to an air-gapped Cursor window.
+Run [`tools/scripts/copy_schema_handoff.sh`](../tools/scripts/copy_schema_handoff.sh) to emit `schemas/cad_intent_envelope.schema.json` and sample envelopes into `./handoff/` (gitignored) for paste-in to an air-gapped Cursor window.
 
 ---
 

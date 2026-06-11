@@ -1,6 +1,6 @@
 # InGENeer orchestrator (`ingenieer`)
 
-Python package for **routing, validation, and transport** only. It does not execute CAD APIs or compute B-rep geometry (see `AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md`).
+Python package for **routing, validation, and transport** only. It does not execute CAD APIs or compute B-rep geometry (see `docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md`).
 
 ## Install (editable)
 

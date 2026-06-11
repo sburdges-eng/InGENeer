@@ -12,10 +12,11 @@ license = "MIT"
 dependencies = [
     "pydantic>=2.5",
     "jsonschema>=4.20",
+    "anthropic>=0.40",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "ruff>=0.8"]
+dev = ["pytest>=7.0", "ruff>=0.8", "pyyaml>=6.0"]
 
 [project.scripts]
 ingenieer-run = "ingenieer.cli:main"

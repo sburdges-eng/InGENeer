@@ -43,6 +43,16 @@ jobs:
       - run: ruff check src tests
       - run: python -m pytest -q
 
+  contracts:
+    name: Contract sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python tools/checks/check_contract_sync.py
+
   dotnet:
     name: .NET (build)
     runs-on: ubuntu-latest

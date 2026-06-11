@@ -11,7 +11,7 @@ When recommending software, export formats, or automation approaches for **manua
 |------|----------------|
 | GIS, CRS, maps, contours, terrain | **QGIS**; add **GRASS** when workflows need it (e.g. raster/terrain analysis, topology-heavy operations). |
 | 2D CAD sheets, simple DWG/DXF | **LibreCAD**. |
-| 3D solids / meshes | **FreeCAD** (see `AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` for worker/orchestrator boundaries). |
+| 3D solids / meshes | **FreeCAD** (see `docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` for worker/orchestrator boundaries). |
 | Math / automation | **Python** plus **spreadsheets** (LibreOffice Calc, Excel, or similar as context fits). |
 
 ## Agent behavior

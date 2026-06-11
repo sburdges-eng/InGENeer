@@ -92,3 +92,21 @@ def test_bridge_config_deadline_sec_default():
     config = BridgeConfig()
 
     assert config.deadline_sec == 60.0
+
+
+def test_generator_config_defaults():
+    from ingenieer.models import GeneratorConfig
+
+    cfg = GeneratorConfig()
+    assert cfg.api_key == ""
+    assert cfg.model == "claude-sonnet-4-20250514"
+    assert cfg.max_tokens == 4096
+    assert cfg.temperature == 0.0
+
+
+def test_orchestrator_config_has_generator():
+    from ingenieer.models import OrchestratorConfig
+
+    cfg = OrchestratorConfig()
+    assert cfg.generator.api_key == ""
+    assert cfg.generator.model == "claude-sonnet-4-20250514"

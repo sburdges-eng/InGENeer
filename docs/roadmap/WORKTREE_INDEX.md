@@ -11,10 +11,10 @@ Open **[InGENeer.code-workspace](../../InGENeer.code-workspace)** in Cursor/VS C
 From the repo root, after creating the roadmap branches locally:
 
 ```bash
-./scripts/bootstrap_worktrees.sh
+./tools/scripts/bootstrap_worktrees.sh
 ```
 
-Override output base directory: `INGENEER_WORKTREE_BASE=/path/to/wt ./scripts/bootstrap_worktrees.sh`.
+Override output base directory: `INGENEER_WORKTREE_BASE=/path/to/wt ./tools/scripts/bootstrap_worktrees.sh`.
 
 ## Branch layout
 

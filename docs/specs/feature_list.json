@@ -1,0 +1,1009 @@
+{
+  "version": "1.0",
+  "generated": "2026-06-11",
+  "source": "orchestrator pytest suite (excludes tests/test_intent_generator.py until module lands)",
+  "features": [
+    {
+      "id": "tests/test_audit.py::test_audit_chain",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_audit.py::test_audit_chain",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_audit_reader.py::test_commands_summary",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_audit_reader.py::test_commands_summary",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_audit_reader.py::test_query_filters_and_combines_filters",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_audit_reader.py::test_query_filters_and_combines_filters",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_audit_reader.py::test_query_returns_empty_results",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_audit_reader.py::test_query_returns_empty_results",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_batch_duplicate_intent_ids_rejected",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_batch_duplicate_intent_ids_rejected",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_batch_execution_mode_override",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_batch_execution_mode_override",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_batch_halts_on_failure",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_batch_halts_on_failure",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_batch_result_defaults",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_batch_result_defaults",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_batch_runs_all_intents",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_batch_runs_all_intents",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_batch_threads_fingerprint",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_batch_threads_fingerprint",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_project_contract_parses_minimal",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_project_contract_parses_minimal",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_batch.py::test_project_contract_rejects_empty_intents",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_batch.py::test_project_contract_rejects_empty_intents",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_circuit_breaker_half_open_probe_fails",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_circuit_breaker_half_open_probe_fails",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_circuit_breaker_half_open_probe_succeeds",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_circuit_breaker_half_open_probe_succeeds",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_circuit_breaker_opens_after_threshold",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_circuit_breaker_opens_after_threshold",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_circuit_breaker_resets_on_success",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_circuit_breaker_resets_on_success",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_create_bridge_from_config",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_create_bridge_from_config",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_deadline_exceeded_before_retry_exhaustion",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_deadline_exceeded_before_retry_exhaustion",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_invalid_retry_after_falls_back_to_default_backoff",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_invalid_retry_after_falls_back_to_default_backoff",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_retries_transient_503_then_succeeds",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_retries_transient_503_then_succeeds",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_reuses_keepalive_connection",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_reuses_keepalive_connection",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_sends_request_id_and_idempotency_key_for_post",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_sends_request_id_and_idempotency_key_for_post",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_sends_request_id_for_get",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_sends_request_id_for_get",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_uses_retry_after_http_date_for_429",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_uses_retry_after_http_date_for_429",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_uses_retry_after_seconds_for_503",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_uses_retry_after_seconds_for_503",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_verify_marks_timeout_as_transient",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_verify_marks_timeout_as_transient",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_http_client_verify_uses_verify_fingerprint_request_id",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_http_client_verify_uses_verify_fingerprint_request_id",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_mock_execute_fail_flag",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_mock_execute_fail_flag",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_mock_execute_noop",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_mock_execute_noop",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_mock_fingerprint",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_mock_fingerprint",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_permanent_error_does_not_trip_breaker",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_permanent_error_does_not_trip_breaker",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_transport_telemetry_on_permanent_failure",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_transport_telemetry_on_permanent_failure",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_transport_telemetry_on_retry",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_transport_telemetry_on_retry",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_transport_telemetry_on_success",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_transport_telemetry_on_success",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_transport_telemetry_retry_after_used",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_transport_telemetry_retry_after_used",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_bridge_client.py::test_transport_telemetry_timeout",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_bridge_client.py::test_transport_telemetry_timeout",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestBasicPipeline::test_missing_file_exits_nonzero",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestBasicPipeline::test_missing_file_exits_nonzero",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestBasicPipeline::test_noop_from_file",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestBasicPipeline::test_noop_from_file",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestBasicPipeline::test_noop_from_stdin",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestBasicPipeline::test_noop_from_stdin",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestBatchMode::test_batch_from_file",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestBatchMode::test_batch_from_file",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestBatchMode::test_batch_from_stdin",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestBatchMode::test_batch_from_stdin",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestBatchMode::test_batch_with_failure_exits_nonzero",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestBatchMode::test_batch_with_failure_exits_nonzero",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestConfigFile::test_config_file_applied",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestConfigFile::test_config_file_applied",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestConfirmationToken::test_empty_i_confirm_rejected",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestConfirmationToken::test_empty_i_confirm_rejected",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestConfirmationToken::test_i_confirm_sets_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestConfirmationToken::test_i_confirm_sets_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestExecutionModeOverrides::test_dry_run_and_preview_conflict",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestExecutionModeOverrides::test_dry_run_and_preview_conflict",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestExecutionModeOverrides::test_dry_run_flag",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestExecutionModeOverrides::test_dry_run_flag",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestExecutionModeOverrides::test_preview_flag",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestExecutionModeOverrides::test_preview_flag",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestPhaseSelection::test_phase_through_dispatch",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestPhaseSelection::test_phase_through_dispatch",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestPhaseSelection::test_phase_validate_only",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestPhaseSelection::test_phase_validate_only",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestPrintPlan::test_print_plan_exits_after_validate",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestPrintPlan::test_print_plan_exits_after_validate",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestPrintPlan::test_print_plan_invalid_intent_exits_nonzero",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestPrintPlan::test_print_plan_invalid_intent_exits_nonzero",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_cli.py::TestValidationErrors::test_high_risk_without_token_fails",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_cli.py::TestValidationErrors::test_high_risk_without_token_fails",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_bridge_config_deadline_sec_default",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_bridge_config_deadline_sec_default",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_from_env_with_all_vars_set",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_from_env_with_all_vars_set",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_from_env_with_defaults",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_from_env_with_defaults",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_from_toml_missing_file_raises",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_from_toml_missing_file_raises",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_from_toml_with_valid_file",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_from_toml_with_valid_file",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_generator_config_defaults",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_generator_config_defaults",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_config_loaders.py::test_orchestrator_config_has_generator",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_config_loaders.py::test_orchestrator_config_has_generator",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_contracts.py::test_build_and_validate_roundtrip",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_contracts.py::test_build_and_validate_roundtrip",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_contracts.py::test_canonical_json_stable",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_contracts.py::test_canonical_json_stable",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_contracts.py::test_rejects_absolute_path_in_paths",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_contracts.py::test_rejects_absolute_path_in_paths",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_contracts.py::test_rejects_path_traversal",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_contracts.py::test_rejects_path_traversal",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_allowed_commands_and_risk_in_sync",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_allowed_commands_and_risk_in_sync",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_allowlist_accepts_catalog_commands",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_allowlist_accepts_catalog_commands",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_allowlist_rejects_unknown_command",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_allowlist_rejects_unknown_command",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_analyze_storm_drainage_accepted_no_token_needed",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_analyze_storm_drainage_accepted_no_token_needed",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_balance_grading_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_balance_grading_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_balance_grading_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_balance_grading_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_balance_grading_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_balance_grading_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_command_risk_defaults_to_high_for_unknown",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_command_risk_defaults_to_high_for_unknown",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_command_risk_values_are_valid_tiers",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_command_risk_values_are_valid_tiers",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_bad_enum",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_bad_enum",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_missing_field",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_missing_field",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_too_few_points",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_too_few_points",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_wrong_coordinate_type",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_schema_validation_failure_wrong_coordinate_type",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_alignment_schema_validation_success",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_alignment_schema_validation_success",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_corridor_model_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_corridor_model_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_corridor_model_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_corridor_model_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_corridor_model_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_corridor_model_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_cross_section_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_cross_section_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_cross_section_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_cross_section_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_cross_section_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_cross_section_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_paving_area_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_paving_area_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_paving_area_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_paving_area_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_point_blocks_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_point_blocks_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_point_blocks_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_point_blocks_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_point_blocks_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_point_blocks_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_profile_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_profile_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_profile_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_profile_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_profile_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_profile_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_retention_pond_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_retention_pond_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_retention_pond_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_retention_pond_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_retention_pond_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_retention_pond_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_sanitary_sewer_network_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_sanitary_sewer_network_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_sanitary_sewer_network_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_sanitary_sewer_network_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_create_sanitary_sewer_network_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_create_sanitary_sewer_network_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_default_schema_path_points_at_repo_file",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_default_schema_path_points_at_repo_file",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_design_irrigation_zone_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_design_irrigation_zone_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_design_irrigation_zone_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_design_irrigation_zone_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_draw_polyline_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_draw_polyline_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_draw_polyline_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_draw_polyline_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_draw_polyline_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_draw_polyline_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_high_risk_dry_run_skips_confirmation",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_high_risk_dry_run_skips_confirmation",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_high_risk_execute_requires_human_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_high_risk_execute_requires_human_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_import_landxml_surface_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_import_landxml_surface_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_import_landxml_surface_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_import_landxml_surface_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_import_landxml_surface_execute_with_token_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_import_landxml_surface_execute_with_token_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_json_schema_rejects_bad_schema_version",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_json_schema_rejects_bad_schema_version",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_ping_host_schema_validation_success",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_ping_host_schema_validation_success",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_place_planting_layout_accepted_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_place_planting_layout_accepted_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_place_planting_layout_execute_requires_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_place_planting_layout_execute_requires_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_intent_validation.py::test_verify_surface_accepted_no_token_needed",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_intent_validation.py::test_verify_surface_accepted_no_token_needed",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_dispatch_exception_fails_at_dispatch_execute",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_dispatch_exception_fails_at_dispatch_execute",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_dispatch_failure_skips_verify",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_dispatch_failure_skips_verify",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_fingerprint_mismatch_fails_sync",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_fingerprint_mismatch_fails_sync",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_high_risk_execute_fails_without_confirmation",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_high_risk_execute_fails_without_confirmation",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_low_risk_execute_bypasses_silent_mutation_check",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_low_risk_execute_bypasses_silent_mutation_check",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_all_phases_mock",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_all_phases_mock",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_analyze_storm_drainage_execute_no_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_analyze_storm_drainage_execute_no_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_balance_grading_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_balance_grading_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_balance_grading_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_balance_grading_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_alignment_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_alignment_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_alignment_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_alignment_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_corridor_model_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_corridor_model_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_corridor_model_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_corridor_model_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_cross_section_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_cross_section_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_cross_section_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_cross_section_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_paving_area_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_paving_area_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_paving_area_execute",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_paving_area_execute",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_point_blocks_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_point_blocks_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_point_blocks_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_point_blocks_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_profile_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_profile_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_profile_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_profile_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_retention_pond_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_retention_pond_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_retention_pond_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_retention_pond_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_sanitary_sewer_network_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_sanitary_sewer_network_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_create_sanitary_sewer_network_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_create_sanitary_sewer_network_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_design_irrigation_zone_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_design_irrigation_zone_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_design_irrigation_zone_execute",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_design_irrigation_zone_execute",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_draw_polyline_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_draw_polyline_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_draw_polyline_execute_no_token_fails",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_draw_polyline_execute_no_token_fails",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_get_model_fingerprint",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_get_model_fingerprint",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_import_landxml_surface_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_import_landxml_surface_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_import_landxml_surface_execute_with_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_import_landxml_surface_execute_with_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_ping_host",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_ping_host",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_place_planting_layout_dry_run",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_place_planting_layout_dry_run",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_place_planting_layout_execute",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_place_planting_layout_execute",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_preview_mode",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_preview_mode",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_schema_enabled_invalid_rejected",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_schema_enabled_invalid_rejected",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_schema_enabled_valid_passes",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_schema_enabled_valid_passes",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_pipeline_verify_surface_execute_no_token",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_pipeline_verify_surface_execute_no_token",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_silent_mutation_failure_detected",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_silent_mutation_failure_detected",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_validate_rejects_empty_intent_id",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_validate_rejects_empty_intent_id",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_validate_rejects_schema_version_mismatch",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_validate_rejects_schema_version_mismatch",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_validate_rejects_unknown_command",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_validate_rejects_unknown_command",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_verify_fails_when_dispatch_telemetry_missing_fingerprint",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_verify_fails_when_dispatch_telemetry_missing_fingerprint",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_verify_retries_transient_then_succeeds",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_verify_retries_transient_then_succeeds",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_verify_surface_returns_query_telemetry",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_verify_surface_returns_query_telemetry",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator.py::test_verify_transient_exhaustion_fails_after_retry_limit",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator.py::test_verify_transient_exhaustion_fails_after_retry_limit",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_orchestrator_http.py::test_pipeline_http_mode_roundtrip",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_orchestrator_http.py::test_pipeline_http_mode_roundtrip",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_roundtrip_integration.py::test_pipeline_csharp_loopback_roundtrip",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_roundtrip_integration.py::test_pipeline_csharp_loopback_roundtrip",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    },
+    {
+      "id": "tests/test_wire.py::test_bridge_result_contract",
+      "test_cmd": "cd orchestrator && python -m pytest -q tests/test_wire.py::test_bridge_result_contract",
+      "status": "passing",
+      "last_verified": "2026-06-11"
+    }
+  ]
+}

@@ -5,14 +5,43 @@
       "name": "orchestrator (Python)",
       "settings": {
         "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-        "python.analysis.extraPaths": ["src"]
+        "python.analysis.extraPaths": [
+          "src"
+        ]
       }
     },
-    { "path": "icad-addin", "name": "icad-addin (.NET)" },
-    { "path": "schemas", "name": "schemas (JSON)" },
-    { "path": "docs", "name": "docs" },
-    { "path": "AutonomAtIon", "name": "AutonomAtIon (rules)" },
-    { "path": "scripts", "name": "scripts" }
+    {
+      "path": "icad-addin",
+      "name": "icad-addin (.NET)"
+    },
+    {
+      "path": "schemas",
+      "name": "schemas (JSON)"
+    },
+    {
+      "path": "docs",
+      "name": "docs"
+    },
+    {
+      "path": "docs/governance/autonomation",
+      "name": "governance (AutonomAtIon)"
+    },
+    {
+      "path": "tools",
+      "name": "tools (agentic + scripts)"
+    },
+    {
+      "path": "apps",
+      "name": "apps"
+    },
+    {
+      "path": "libs",
+      "name": "libs"
+    },
+    {
+      "path": "research",
+      "name": "research"
+    }
   ],
   "settings": {
     "search.followSymlinks": false,
@@ -26,7 +55,18 @@
       "**/__pycache__/**": true,
       "**/.pytest_cache/**": true,
       "**/.mypy_cache/**": true,
-      "**/.ruff_cache/**": true
+      "**/.ruff_cache/**": true,
+      "**/.agent-sessions/**": true,
+      "**/.claude/**": true,
+      "**/.codex/**": true,
+      "**/.gemini/**": true,
+      "**/.hermes/**": true,
+      "**/.next/**": true,
+      "**/.turbo/**": true,
+      "**/coverage/**": true,
+      "**/dist/**": true,
+      "**/worktrees/**": true,
+      "**/chaffee_county/**": true
     },
     "search.exclude": {
       "**/bin": true,
@@ -36,7 +76,31 @@
       "**/__pycache__": true,
       "**/.pytest_cache": true,
       "**/.mypy_cache": true,
-      "**/.ruff_cache": true
+      "**/.ruff_cache": true,
+      "**/.agent-sessions": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.gemini": true,
+      "**/.hermes": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/coverage": true,
+      "**/dist": true,
+      "**/worktrees": true,
+      "**/chaffee_county": true
+    },
+    "files.exclude": {
+      "**/.agent-sessions": true,
+      "**/.claude": true,
+      "**/.codex": true,
+      "**/.gemini": true,
+      "**/.hermes": true,
+      "**/.next": true,
+      "**/.turbo": true,
+      "**/coverage": true,
+      "**/dist": true,
+      "**/worktrees": true,
+      "**/chaffee_county": true
     }
   }
 }

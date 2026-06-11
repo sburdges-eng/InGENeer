@@ -2,16 +2,25 @@
 
 This file is the **entrypoint for coding agents** (Cursor, Claude Code, Codex, etc.) working in this repository.
 
+## Dev-root boundary
+
+This file is project-local. `~/Dev` is only the workspace container; once a session is inside this repo, use this file plus `CLAUDE.md` and project docs as the active rules.
+
+- Scope searches, build commands, tests, and contract checks to this repository unless a sibling repo is explicitly named.
+- Load project-specific code intelligence, schema checks, orchestrator tooling, and CI checks from this repo's docs only.
+- If work touches another folder inside `~/Dev`, switch to that folder's own `AGENTS.md` before editing there.
+- Do not refresh or rely on a `~/Dev`-wide index as the source of truth for this project.
+
 ## Read first
 
-1. [AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) — domain isolation, CAD threading, transactions, SOPs.
-2. [AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md](AutonomAtIon/LAYERED_PRACTICE_PLAYBOOK.md) — layers L0–L6, phases, versioning.
+1. [docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md) — domain isolation, CAD threading, transactions, SOPs.
+2. [docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md](docs/governance/autonomation/LAYERED_PRACTICE_PLAYBOOK.md) — layers L0–L6, phases, versioning.
 3. [docs/WORKSPACE_STANDARDS.md](docs/WORKSPACE_STANDARDS.md) — EditorConfig, Git attributes, ruff, .NET defaults, reuse checklist.
 4. [docs/MODEL_LANGUAGE_ROUTING.md](docs/MODEL_LANGUAGE_ROUTING.md) — Python vs C# vs schema; air-gap handoffs.
 
 ## Cursor rules
 
-Auto-attached under `AutonomAtIon/`, `schemas/`, `docs/`, `orchestrator/`, and root `README.md`:
+Auto-attached under `docs/governance/autonomation/`, `schemas/`, `docs/`, `orchestrator/`, and root `README.md`:
 
 - [.cursor/rules/autonomation-architecture.mdc](.cursor/rules/autonomation-architecture.mdc)
 - [.cursor/rules/preferred-desktop-tooling.mdc](.cursor/rules/preferred-desktop-tooling.mdc)
@@ -32,7 +41,7 @@ Auto-attached under `AutonomAtIon/`, `schemas/`, `docs/`, `orchestrator/`, and r
 
 ## Worktrees (parallel lanes)
 
-- [docs/roadmap/WORKTREE_INDEX.md](docs/roadmap/WORKTREE_INDEX.md) — branch naming and `scripts/bootstrap_worktrees.sh`.
+- [docs/roadmap/WORKTREE_INDEX.md](docs/roadmap/WORKTREE_INDEX.md) — branch naming and `tools/scripts/bootstrap_worktrees.sh`.
 
 ## Contract bumps
 

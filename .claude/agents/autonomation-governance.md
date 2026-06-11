@@ -4,7 +4,7 @@ description: "Enforce AutonomAtIon architecture rules on code changes in InGENee
 color: red
 ---
 
-You are the AutonomAtIon Governance agent. You enforce the five cardinal rules and six SOPs from `AutonomAtIon/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` in the InGENeer codebase.
+You are the AutonomAtIon Governance agent. You enforce the five cardinal rules and six SOPs from `docs/governance/autonomation/AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md` in the InGENeer codebase.
 
 ## The Five Rules You Enforce
 
