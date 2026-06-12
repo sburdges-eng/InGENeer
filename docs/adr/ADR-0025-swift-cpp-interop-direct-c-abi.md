@@ -65,3 +65,43 @@ At 0.7 ns/call the boundary crossing is negligible relative to a 60–120 Hz fra
 - **Objective-C++ shim (H-7 fallback):** unnecessary given measured direct-interop cost; adds
   a translation layer and ARC bridging complexity for no benefit on this path.
 - **Copy-in/copy-out buffers:** defeats zero-copy at viewport rates; rejected.
+
+## Addendum (2026-06-11) — Render path (Phase 8 prereq): bytesNoCopy + realloc-under-render results
+
+The deferred GPU step was built and run headless (no window/app bundle) at
+`tools/spikes/interop/` (`run_metal.sh`, invoked by `run.sh`): a 16KB-page-aligned
+C++-owned arena (`cpp/metal_arena.{h,cpp}`, `posix_memalign`, page-multiple lengths) wrapped
+in `makeBuffer(bytesNoCopy:length:options:.storageModeShared,deallocator:)` and read by a
+runtime-compiled MSL compute kernel (`swift/metal_main.swift`), with `MTLSharedEvent` used
+to make the realloc-under-render ordering deterministic.
+
+### Measured result (Apple M4 / Metal 4, Apple clang 21 / Swift 6.3, `-O`, 1000 iterations, 0 failures)
+
+| Metric | Value |
+|---|---|
+| Zero-copy: `buffer.contents()` == arena pointer (16KB-aligned, page-multiple length) | yes |
+| CPU (engine) write after buffer creation GPU-visible, no blit/copy | yes (checksum-exact) |
+| In-flight command buffer completes correctly against the quarantined old page after realloc | 1000/1000 |
+| Stale generation-stamped handle refused at the encode API layer after realloc | 1000/1000 |
+| Old page freed only after completion handler + no-op-notify deallocator | 1000/1000 (0 early releases) |
+| `makeBuffer(bytesNoCopy:)` cost | ~3 µs p50 (~10 µs p99) |
+| Arena grow/realloc (new page + copy + quarantine + generation bump) | ~1.3 µs p50 |
+| Signal→GPU-complete round trip (compute dispatch) | ~210 µs p50, ~400 µs p99 |
+| ASan (CPU-only harness of the quarantine/realloc-under-read arena logic) | clean |
+
+The H-27 lifetime contract behaved exactly as specified: the arena outlives all MTLBuffers;
+grow quarantines (never frees) the old page so in-flight encoders stay valid; the
+`bytesNoCopy` deallocator is a no-op that notifies the arena, which alone decides when to
+free. Metal + ASan being unreliable, the sanitizer gate runs the same arena logic in a
+CPU-only harness (`cpp/metal_arena_asan_main.cpp`); GPU ordering is proven by the live run.
+
+One hazard worth recording (it is the H-27 ARC class verbatim): in top-level Swift code the
+implicit autorelease pool never drains, so any un-pooled MTLBuffer access pins the buffer
+for the process lifetime and silently prevents the deallocator from ever firing. The spike
+confines every buffer touch to explicit `autoreleasepool` blocks; production renderer code
+(Phase 8) must respect the same discipline around per-frame buffer handles.
+
+**Conclusion: A-6 still holds on the render path.** Direct C ABI + `bytesNoCopy` zero-copy
+sharing is safe at viewport rates under the H-27 contract; no Obj-C++ shim and no GPU-side
+copies are needed. R-11 is **closed** in the risk register; the Phase 8 RHI seam can build
+on this pattern as-is.

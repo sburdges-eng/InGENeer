@@ -17,3 +17,7 @@ swiftc -O \
 
 echo "[3/3] run"
 ./build/interop_spike
+
+echo ""
+echo "=== Phase 8 prereq: Metal bytesNoCopy + realloc-under-render (R-11 render path) ==="
+./run_metal.sh

@@ -23,7 +23,7 @@ See `adr/README.md`. Headlines: monorepo (InGENeer root, `apps/libs/research/doc
 7. Spec: plugin SDK ABI strategy; sync conflict model (open questions).
 
 ## Known Risks
-Open: R-1 (rewrite scope), R-3 (forkability), R-5 (sync creep), R-6 (local model gap), R-9 (TIN hard 20%), R-10 (ODA terms), R-11 (Swift interop), R-12 (regulator acceptance). See RISK_REGISTER.md.
+Open: R-1 (rewrite scope), R-3 (forkability), R-5 (sync creep), R-6 (local model gap), R-9 (TIN hard 20%), R-10 (ODA terms), R-12 (regulator acceptance). R-11 (Swift interop) **Closed** 2026-06-11 (CPU path ADR-0025; render path bytesNoCopy/realloc-under-render proof). See RISK_REGISTER.md.
 
 ## Open Questions
 Plugin SDK ABI; sync conflict model; agent decomposition; branding; board/DOT acceptance strategy.
@@ -292,6 +292,65 @@ match, hull 18, area within 1e-2** — the first ADR-0023 oracle gate exercised 
 **Phase 6 remaining:** 6.2 breaklines + crossing policy (H-6), 6.3 contours + volumes vs
 oracle, 6.4 out-of-core octree design doc, 6.5 libFuzzer TIN target, perf baselines.
 
+## Session Addendum — 2026-06-11 (Phases 6.2/6.3/6.4 + Phase 8 prereq — parallel dispatch)
+
+Four parallel worktree subagents (scope-contracted), integrated on `feat/phase6.2-6.4-r11-close`
+(cherry-picked from `af22a30`); every gate re-run independently on the combined tree:
+
+**6.2 — breaklines + H-6 crossing policy (DONE):** `tin_breakline.cpp` — Anglada pseudo-polygon
+retriangulation; constrained edges are exact barriers in the Bowyer–Watson conflict BFS; point
+exactly on a constrained edge splits it. H-6 policy is an explicit enum, never silent:
+**Reject** → `TinErrc::ConstraintIntersection` with exact rollback (canonical-set-equality
+verified); **Split** → shared vertex at the intersection, z interpolated along the NEW
+breakline's working segment (newest data wins; existing vertex z never rewritten); degenerate
+intersection-on-endpoint rejects loudly even under Split. Collinear overlap with an existing
+constrained edge merges idempotently. Constrained edges proven to survive later insertions;
+Delaunay audit excludes constrained-adjacent pairs.
+
+**6.3 — contours + volumes (DONE):** new `surface_quantities` target (`contour.{h,cpp}`,
+`volume.{h,cpp}`) consuming the Tin strictly read-only. Contours: per-level segments, purely
+combinatorial shared-edge chaining, vertex-on-level via symbolic z+ε; Chaikin output is a
+distinct derived/non-authoritative type (C-1.3 analog). Volumes: TIN-prism with exact
+positive-part clipping (cut and fill individually exact), `volume_to_plane` +
+`volume_between` (shared point support; else `UnsharedSupport`), prismoidal L/6(A1+4Am+A2);
+avg-end-area only as a labeled report option. **Oracle:** contours TOTaLi-extracted
+(`totali-corpus-500pt-cv-v1.txt`, 3 levels, sha `e44e9002`; v1 fixture regeneration verified
+byte-identical — frozen semantics confirmed). Volumes: TOTaLi has **no volume pipeline** —
+corpus-scale cut/fill pinned via an independent numpy clipping implementation in the
+extraction script (cut 50596.66 / fill 42877.23 m³ vs plane 115, parity 1e-1) + analytic
+tetra/pyramid/sign tests. **Owner approved this §4.3 deviation** (numpy-pinned volume oracle
+in lieu of TOTaLi extraction) 2026-06-11. Deferred: independent-two-TIN merge (v1 = plane +
+shared-support).
+
+**6.4 — out-of-core octree design doc (DONE, spec-first per C-5.3):**
+`docs/superpowers/specs/2026-06-11-out-of-core-octree-design.md` — additive Potree-style
+octree; integer-only deterministic sampling (no RNG; bit-identical builds, exceeds H-22);
+single-blob sidecar with 16 KiB-aligned node payloads + arena-owned residency (mmap-direct
+rejected for v1; H-27-compatible bytesNoCopy path); point clouds are bulk data NOT
+audit-chain entities (two-level Merkle anchor via one ingest event). Proposes **ADR-0028**;
+open questions incl. OQ-1 module home (pointcloud_core vs surface_core) for owner ruling.
+
+**Phase 8 prereq — Metal bytesNoCopy + realloc-under-render (DONE; R-11 CLOSED):**
+`tools/spikes/interop/run_metal.sh` + `metal_arena.{h,cpp}` + `swift/metal_main.swift`,
+headless, Apple M4. Proven (1000/1000 iters, 0 failures, MTLSharedEvent-deterministic):
+zero-copy (`buffer.contents()` == arena page); stale generation-stamped handles refused at
+encode after realloc; in-flight command buffers complete against the quarantined page, old
+page freed only after completion handler + deallocator notify. ASan: arena lifetime logic
+clean in CPU-only harness (Metal+ASan unreliable). p50 `makeBuffer(bytesNoCopy:)` ≈ 3.2 µs;
+arena grow ≈ 1.4 µs. **Notable ARC hazard found:** top-level Swift's implicit autorelease
+pool never drains — one un-pooled `buffer.contents()` pinned the MTLBuffer for process
+lifetime and silently blocked the deallocator; Phase 8 renderer must wrap per-frame handle
+touches in explicit `autoreleasepool`. RISK_REGISTER R-11 → **Closed**; ADR-0025 render-path
+addendum appended (A-6 holds). CPU spike unregressed (0.68 ns/call).
+
+**Verification (combined tree, run by integrating session, not trusted from agents):**
+21/21 CTest × dev/asan-ubsan/tsan/hardened = **84/84**; numeric gate ✓ (4 presets, H-22
+flag); clang-format ✓ (one spike fixup commit); verify_gate.sh ✓ (ruff, pytest 173+,
+dotnet, domain-isolation, contract-sync); Metal spike PASS re-run.
+
+**Phase 6 remaining after this session:** 6.5 libFuzzer TIN target, perf baselines;
+6.3 two-independent-TIN volume merge (deferred design note in volume.h).
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
@@ -300,7 +359,7 @@ oracle, 6.4 out-of-core octree design doc, 6.5 libFuzzer TIN target, perf baseli
    cross-language SHA-256 parity fixture (spec §6); evaluator sign-off for Phase 3 exit.
 3. **Two human decisions** from the 3.1 spec §8: licensed-professional identity boundary; confirm
    SHA-256 as the frozen chain hash.
-4. **Phase 8 prereq** — Metal `bytesNoCopy` + realloc-under-render test to fully close R-11.
+4. ~~Phase 8 prereq — Metal `bytesNoCopy` + realloc-under-render test to fully close R-11.~~ **Done** — R-11 Closed (see 6.2/6.3/6.4 + Phase 8 prereq addendum).
 5. **Promote Phase 10 specs to ADRs** (0026 ABI / 0027 sync) after owner sign-off on their open
    questions.
 6. **Business** — Budget ODA Sustaining membership before paid DWG distribution.

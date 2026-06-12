@@ -183,10 +183,48 @@ std::expected<VertexId, TinError> Tin::insert(double x, double y, double z) noex
     if (dup != kGhostVertex) return dup;
     if (seed == kNoTriangle) return std::unexpected(TinError{TinErrc::WalkOverflow});
 
+    // Constrained-edge split (Phase 6.2): a point landing EXACTLY on a constrained edge
+    // must split the constraint at that point — a vertex in an edge's interior is
+    // structurally invalid. Exact test: orient2d collinearity with the edge AND inside its
+    // bbox; the point is distinct from every vertex (duplicate check above), so "inside
+    // the bbox" is strictly interior to the segment. At most one constrained edge can
+    // contain the point (constrained edges never cross or overlap).
+    VertexId split_c = kGhostVertex;
+    VertexId split_d = kGhostVertex;
+    for (const std::uint64_t k : constrained_) {
+        const VertexId c = static_cast<VertexId>(k >> 32);
+        const VertexId d = static_cast<VertexId>(k & 0xFFFFFFFFu);
+        if (orient_vv(c, d, x, y) != Orientation::COLLINEAR) continue;
+        const TinVertex& cc = vertices_[c];
+        const TinVertex& dd = vertices_[d];
+        const double lox = cc.x < dd.x ? cc.x : dd.x;
+        const double hix = cc.x < dd.x ? dd.x : cc.x;
+        const double loy = cc.y < dd.y ? cc.y : dd.y;
+        const double hiy = cc.y < dd.y ? dd.y : cc.y;
+        if (lox <= x && x <= hix && loy <= y && y <= hiy) {
+            split_c = c;
+            split_d = d;
+            break;
+        }
+    }
+    if (split_c != kGhostVertex) constrained_.erase(edge_key(split_c, split_d));
+
     vertices_.push_back(TinVertex{x, y, z});
     const VertexId p = static_cast<VertexId>(vertices_.size() - 1);
     if (!cavity_insert(p, seed)) {
+        // Every cavity_insert failure path returns before mutating the mesh, so a full
+        // rollback is exactly: un-split the constraint and drop the just-appended vertex
+        // (p was never exposed to the caller, and no triangle references it).
+        vertices_.pop_back();
+        if (split_c != kGhostVertex) constrained_.insert(edge_key(split_c, split_d));
         return std::unexpected(TinError{TinErrc::WalkOverflow});
+    }
+    if (split_c != kGhostVertex) {
+        // Both halves exist: the cavity contained both triangles adjacent to (c, d) (the
+        // point lies on that chord, strictly inside both circumcircles), so c and d are
+        // cavity-boundary vertices and the fresh ring connects each of them to p.
+        constrained_.insert(edge_key(split_c, p));
+        constrained_.insert(edge_key(split_d, p));
     }
     return p;
 }
@@ -255,6 +293,8 @@ bool Tin::cavity_insert(VertexId p, TriId seed) noexcept {
     }
 
     // ---- conflict BFS -------------------------------------------------------------
+    // Constrained edges are BARRIERS (H-6): the conflict region never expands across one,
+    // so constrained edges survive subsequent point insertions.
     std::vector<TriId> cavity;
     std::vector<TriId> stack{start};
     std::vector<bool> in_cavity(tris_.size(), false);
@@ -266,11 +306,84 @@ bool Tin::cavity_insert(VertexId p, TriId seed) noexcept {
         for (int i = 0; i < 3; ++i) {
             const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
             if (m == kNoTriangle || in_cavity[m] || !tris_[m].alive) continue;
+            if (!constrained_.empty() && constrained_.contains(edge_key(
+                                             tris_[t].v[static_cast<std::size_t>((i + 1) % 3)],
+                                             tris_[t].v[static_cast<std::size_t>((i + 2) % 3)]))) {
+                continue;  // barrier
+            }
             if (conflicts(tris_[m], x, y)) {
                 in_cavity[m] = true;
                 stack.push_back(m);
             }
         }
+    }
+
+    // ---- constrained-cavity repair ---------------------------------------------------
+    // With barriers the conflict region is no longer guaranteed star-shaped around p: it
+    // can wrap around a constraint endpoint (re-including both sides of a constrained
+    // edge) or include a triangle whose boundary edge does not see p strictly CCW. Trim
+    // (exact orient2d only) until (1) no constrained edge is cavity-interior, (2) every
+    // finite-finite boundary edge sees p strictly LEFT, and (3) the cavity is a single
+    // seed-connected component. Pure-Delaunay cavities (no constraints) never need this.
+    if (!constrained_.empty()) {
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            for (const TriId t : cavity) {
+                if (!in_cavity[t]) continue;
+                for (int i = 0; i < 3 && in_cavity[t]; ++i) {
+                    const VertexId u = tris_[t].v[static_cast<std::size_t>((i + 1) % 3)];
+                    const VertexId w = tris_[t].v[static_cast<std::size_t>((i + 2) % 3)];
+                    const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
+                    const bool nb_in = (m != kNoTriangle && in_cavity[m]);
+                    if (nb_in) {
+                        if (u != kGhostVertex && w != kGhostVertex &&
+                            constrained_.contains(edge_key(u, w))) {
+                            // Wrap-around: drop the side of the constraint line away from
+                            // p (t's apex is LEFT of (u, w) by the CCW invariant). If p is
+                            // exactly on the line (beyond the segment), drop the non-seed.
+                            const Orientation sp = orient_vv(u, w, x, y);
+                            TriId drop = (sp == Orientation::LEFT) ? m : t;
+                            if (sp == Orientation::COLLINEAR) drop = (m == start) ? t : m;
+                            if (drop == start) drop = (drop == t) ? m : t;
+                            in_cavity[drop] = false;
+                            changed = true;
+                        }
+                    } else if (u != kGhostVertex && w != kGhostVertex &&
+                               orient_vv(u, w, x, y) != Orientation::LEFT) {
+                        if (t == start) return false;  // unrepairable; fail loudly
+                        in_cavity[t] = false;
+                        changed = true;
+                    }
+                }
+            }
+            // Keep only the seed-connected component.
+            std::vector<TriId> reach_stack{start};
+            std::vector<bool> reached(tris_.size(), false);
+            reached[start] = true;
+            while (!reach_stack.empty()) {
+                const TriId t = reach_stack.back();
+                reach_stack.pop_back();
+                for (int i = 0; i < 3; ++i) {
+                    const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
+                    if (m == kNoTriangle || reached[m] || !in_cavity[m]) continue;
+                    reached[m] = true;
+                    reach_stack.push_back(m);
+                }
+            }
+            for (const TriId t : cavity) {
+                if (in_cavity[t] && !reached[t]) {
+                    in_cavity[t] = false;
+                    changed = true;
+                }
+            }
+        }
+        std::vector<TriId> kept;
+        kept.reserve(cavity.size());
+        for (const TriId t : cavity) {
+            if (in_cavity[t]) kept.push_back(t);
+        }
+        cavity.swap(kept);
     }
 
     // ---- boundary edges -> new triangles (u, w, p) ----------------------------------
@@ -286,6 +399,21 @@ bool Tin::cavity_insert(VertexId p, TriId seed) noexcept {
             const VertexId u = tris_[t].v[static_cast<std::size_t>((i + 1) % 3)];
             const VertexId w = tris_[t].v[static_cast<std::size_t>((i + 2) % 3)];
             fresh.push_back(NewTri{u, w, kNoTriangle, m});
+        }
+    }
+    {
+        // The retriangulation below assumes the cavity boundary is a single cycle, i.e.
+        // each vertex appears exactly once as a first and once as a second endpoint. A
+        // violation is conceivable only for a pathological constrained cavity that repair
+        // could not normalize: fail loudly BEFORE mutating anything rather than wire a
+        // corrupt mesh. Unreachable for pure-Delaunay cavities.
+        std::unordered_set<VertexId> firsts;
+        std::unordered_set<VertexId> seconds;
+        firsts.reserve(fresh.size());
+        seconds.reserve(fresh.size());
+        for (const NewTri& nt : fresh) {
+            if (!firsts.insert(nt.u).second) return false;
+            if (!seconds.insert(nt.w).second) return false;
         }
     }
     for (const TriId t : cavity) release_tri(t);
