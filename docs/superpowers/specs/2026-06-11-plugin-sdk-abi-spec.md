@@ -287,9 +287,10 @@ IPC framing bytes (Q3), and the error-context payload (Q4).
 
 ## 9. Decision Needed (human / owner sign-off)
 
-1. **ADR creation.** Approve promoting §2–§7 into a new ADR (proposed **ADR-0028 — Plugin SDK
-   hourglass C ABI**; ADR-0023–0027 are taken), referenced from ARCHITECTURE §11 Open
-   Question #1, which then closes.
+1. **ADR creation.** Approve promoting §2–§7 into a new ADR (proposed **ADR-0029 — Plugin SDK
+   hourglass C ABI**; ADR-0023–0028 are taken — 0028 went to the out-of-core octree ratification,
+   which records this renumbering), referenced from ARCHITECTURE §11 Open Question #1, which
+   then closes.
 2. **Default transport for third-party plugins** (Q1): in-process `dlopen` (lower latency, weaker
    isolation) vs out-of-process default (stronger isolation, matches ODA). Affects the threat model.
 3. **`CAP_PROPOSE_GEOMETRY` exposure to open third parties in v1** (Q5): do untrusted plugins get a

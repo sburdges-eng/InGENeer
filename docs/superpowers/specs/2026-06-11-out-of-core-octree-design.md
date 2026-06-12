@@ -581,12 +581,14 @@ task.
 
 Open questions for the owner (none block review of this design):
 
-- **OQ-1 (module home / plan placement):** plan §4.2 lists the octree under "Core
-  algorithms (surface_core)" while ARCHITECTURE.md §4 assigns point-cloud handling to
-  `pointcloud_core` (a skeleton today). This spec proposes `libs/pointcloud_core` as the
-  implementation home and reads the plan's placement as Phase-6 sequencing, not module
-  assignment. Confirm (or rule otherwise) in ADR-0028. *Not edited per scope rules —
-  noted here instead.*
+- **OQ-1 (module home / plan placement) — RESOLVED 2026-06-12 by ADR-0028:** plan §4.2
+  lists the octree under "Core algorithms (surface_core)" while ARCHITECTURE.md §4
+  assigns point-cloud handling to `pointcloud_core` (a skeleton today). This spec
+  proposed `libs/pointcloud_core` as the implementation home, reading the plan's
+  placement as Phase-6 sequencing, not module assignment.
+  [ADR-0028](../../adr/ADR-0028-out-of-core-pointcloud-octree.md) ruled exactly that
+  (owner-delegated): module home is `libs/pointcloud_core`; the plan §4.2 listing is
+  superseded on this point.
 - **OQ-2 (compression codec):** deferred (see §10). v1 is uncompressed to keep the
   pread→bytesNoCopy path copy-free; a per-node LZ4/LAZ-chunk codec would force a
   decompress-into-arena step (still one copy — acceptable, but a different perf
