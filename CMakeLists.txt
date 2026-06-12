@@ -68,4 +68,5 @@ if(INGENEER_HARDENED)
 endif()
 
 enable_testing()
+add_subdirectory(third_party)
 add_subdirectory(libs)

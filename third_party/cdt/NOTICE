@@ -1,0 +1,13 @@
+CDT — Constrained Delaunay Triangulation (C++ library)
+Copyright the CDT contributors (https://github.com/artem-ogre/CDT)
+Licensed under the Mozilla Public License 2.0 (LICENSE in this directory).
+
+Vendoring policy (InGENeer):
+- Clean mirror of the upstream library headers (CDT/include/) at the commit recorded in
+  UPSTREAM_COMMIT. Upstream docs/, visualizer/, tests, and build scaffolding are omitted.
+- NO local modifications. Do not fork; do not patch in place. To change behavior, wrap it
+  in libs/geometry_core. To update, re-vendor a newer upstream commit and update
+  UPSTREAM_COMMIT.
+- MPL-2.0 is file-level copyleft: if a vendored file is ever modified (avoid this), that
+  file's source must remain available under MPL-2.0. This is compatible with the
+  Apache-2.0 open Core (ADR-0021) when consumed unmodified, as here.

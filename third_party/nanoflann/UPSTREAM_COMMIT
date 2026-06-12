@@ -1,0 +1,5 @@
+repository: https://github.com/jlblancoc/nanoflann
+commit: 94cb2a6f35c26ce04bf84a6b84094fa93f2c5134
+commit-date: 2026-06-09 12:01:55 +0200
+vendored: 2026-06-11
+license: BSD-2-Clause (see LICENSE)
