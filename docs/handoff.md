@@ -257,6 +257,41 @@ invariants); H-22 flag verified in all 4 presets; ruff ✓ pytest 173 ✓ format
 stalled mid-task and was completed by the main session — its draft structure was sound;
 all five defects above were upstream auracad, not introduced by the port.
 
+## Session Addendum — 2026-06-11 (Phase 6.1/6.5 — surface_core TIN engine)
+
+On `feat/phase6-surface-core`:
+
+**Oracle fixture (ADR-0023, procedure executed):** `tools/oracle/extract_from_totali.py`
+extracts the TIN oracle from TOTaLi's pinned survey corpus (`synthetic_500pt.npy`, sha256
+`2f6b14a3…`) at TOTaLi sha `e44e9002` using TOTaLi's own scipy/Qhull Delaunay semantics.
+Fixture (`libs/surface_core/tests/fixtures/oracle/totali-corpus-500pt-v1.txt`): 500 points
+(bit-exact hex floats), 980 canonical triangles, hull 18, Euler-validated (980 = 2·500−2−18),
+full required metadata header.
+
+**6.1 — TIN engine (`libs/surface_core`):** incremental Delaunay on an index-handle mesh,
+ghost triangles for the hull (symbolic infinite vertex — no finite super-triangle
+distortion), Bowyer–Watson cavity insertion with a unified conflict rule, built EXCLUSIVELY
+on geometry_core's exact predicates (the engine does no FP comparisons of its own beyond
+exact duplicate detection). Handles: duplicates (return existing id), collinear bootstrap
+buffering, points exactly ON hull edges, collinear-beyond-hull insertions, hull growth.
+One design subtlety found by TDD and fixed: a ghost's collinear conflict must be restricted
+to the CLOSED SEGMENT (hull-edge hit); collinear-beyond points belong to a neighboring
+ghost — including them emitted a degenerate zero-area triangle (proof sketch in the code:
+finite boundary edges can never be collinear with the inserted point).
+
+**6.5 (audit portion) — tests:** known-answer cases; structural audits (CCW invariant,
+Euler, neighbor symmetry); GLOBAL brute-force Delaunay audit (exact incircle over every
+vertex×triangle); cross-validation vs the independently implemented vendored CDT (canonical
+set equality on tie-free clouds); 144-pt shuffled integer lattice (massive cocircular
+ties); 800-op duplicate/collinear stress; **TOTaLi oracle parity: exact 980-triangle set
+match, hull 18, area within 1e-2** — the first ADR-0023 oracle gate exercised end-to-end.
+
+**Verification:** 18/18 CTest × dev/asan-ubsan/tsan/hardened = **72/72**; numeric gate ✓
+(incl. H-22 contract check); ruff ✓ pytest 173 ✓.
+
+**Phase 6 remaining:** 6.2 breaklines + crossing policy (H-6), 6.3 contours + volumes vs
+oracle, 6.4 out-of-core octree design doc, 6.5 libFuzzer TIN target, perf baselines.
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
