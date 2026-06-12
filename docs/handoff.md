@@ -318,7 +318,9 @@ avg-end-area only as a labeled report option. **Oracle:** contours TOTaLi-extrac
 byte-identical — frozen semantics confirmed). Volumes: TOTaLi has **no volume pipeline** —
 corpus-scale cut/fill pinned via an independent numpy clipping implementation in the
 extraction script (cut 50596.66 / fill 42877.23 m³ vs plane 115, parity 1e-1) + analytic
-tetra/pyramid/sign tests. Deferred: independent-two-TIN merge (v1 = plane + shared-support).
+tetra/pyramid/sign tests. **Owner approved this §4.3 deviation** (numpy-pinned volume oracle
+in lieu of TOTaLi extraction) 2026-06-11. Deferred: independent-two-TIN merge (v1 = plane +
+shared-support).
 
 **6.4 — out-of-core octree design doc (DONE, spec-first per C-5.3):**
 `docs/superpowers/specs/2026-06-11-out-of-core-octree-design.md` — additive Potree-style
