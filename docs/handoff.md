@@ -419,6 +419,53 @@ BRIO/Hilbert insertion-order optimization (documented, not scheduled); corpus-sc
 oracle cross-check for the overlay volume path (needs extract_from_totali.py
 extension).
 
+## Session Addendum — 2026-06-12 (Phase 6 EXIT — perf/oracle closeout + ADR drafts)
+
+Four parallel worktree subagents on `feat/phase6-exit-perf-oracle-adrs` (from `b5bfb03`):
+
+**Contour/volume perf baselines (DONE):** `bench/bench_quantities.cpp` + BENCHMARKS.md
+section (Apple M4, hardened, median-of-3): contours 100k-TIN x 20 levels 1.20 ms/level;
+Chaikin 0.352 ms; volume_to_plane 100k 3 ms; volume_between shared-support 28 ms;
+general overlay 10kx10k 0.271 s / 50kx50k 6.1 s (~n^1.9 — bbox-prefilter pairing is the
+documented future plane-sweep target).
+
+**BRIO/Hilbert bulk insertion (DONE):** additive `Tin::insert_many` — order-16 integer
+Hilbert keys within deterministic RNG-free BRIO rounds (countr_zero(splitmix64(idx))),
+every point through the unchanged insert(). **1M random points: 68.2 s → 1.58 s (43x);
+bulk rate flat ~620–650k pts/s from 10k → 1M** — the O(sqrt-n) walk is resolved for
+batch workloads. All-or-nothing error policy (validate up front; snapshot rollback on
+the defensive path). Equivalence + audit + constraint-survival tests (`test_tin_bulk`).
+
+**Overlay-volume oracle (DONE):** `totali-corpus-500pt-overlay-v1.txt` — corpus TIN vs
+independent 15x15 grid with exact dyadic affine z (triangulation-independent oracle, no
+shared support → general overlay path); independent exact-rational (fractions.Fraction)
+cut/fill in the extraction script + numpy sampling sanity; v1/cv fixtures regenerate
+**byte-identical**. Parity test pinned (cut 149197.64 / fill 10998.23 / area 9717.16).
+Note: the oracle agent lost connection during its gate runs; its complete work was
+verified and committed by the integrating session.
+
+**ADR-0029 (plugin hourglass C ABI) + ADR-0030 (sync conflict model) drafted as
+PROPOSED** from their Phase 10 specs — each carries its spec's verbatim owner sign-off
+checklist as blocking items (0029: transport Q1, CAP_PROPOSE_GEOMETRY Q5, ABI seed,
+identity/signing; 0030: D-S1..D-S5). Index + spec status lines updated. Acceptance
+remains a human action.
+
+**Phase 6 EXIT criteria met:** oracle parity within tolerance (TIN + contours +
+volumes incl. the general overlay path) ✓ · perf benchmarks recorded as baseline
+(insertion, bulk, breaklines, contours, volumes) ✓ · fuzzers + sanitizer-lane audit
+lanes operational ✓. **Phase 6 is EXITED.**
+
+**Verification (combined tree, re-run by integrating session):** 23/23 CTest x
+dev/asan-ubsan/tsan/hardened = 92/92; numeric gate ✓; clang-format ✓; verify_gate.sh ✓;
+old oracle fixtures byte-identity re-proven.
+
+**Remaining tiers for "all project work":** Phase 7 (coordinate_core PROJ CRS +
+pointcloud_core PDAL ingestion + ADR-0028 octree) → Phase 8 (RHI seam + Metal
+rendering spine on the proven interop) → Phase 9 (ai_core + flywheel runtime) — large
+implementation campaigns. Human-only: ODA Sustaining purchase; owner sign-off to flip
+ADR-0029/0030 to Accepted; auracad upstream flagging of predicate defect #6 (separate
+repo).
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
