@@ -28,3 +28,27 @@ target_link_libraries(test_tin_oracle PRIVATE surface_core ingeneer_engine_flags
 add_test(NAME surface.tin_oracle
          COMMAND test_tin_oracle
                  ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-v1.txt)
+
+# --- contours + volumes (Phase 6.3) ----------------------------------------------------
+# Survey-deliverable quantities over the TIN: contour extraction (symbolic perturbation
+# for vertex-on-level) and cut/fill volumes (TIN-prism with exact mixed-triangle split,
+# prismoidal). Separate target consuming surface_core strictly via its public API.
+add_library(surface_quantities
+    src/contour.cpp
+    src/volume.cpp)
+target_include_directories(surface_quantities PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(surface_quantities PUBLIC surface_core PRIVATE ingeneer_engine_flags)
+
+add_executable(test_contour tests/test_contour.cpp)
+target_link_libraries(test_contour PRIVATE surface_quantities ingeneer_engine_flags)
+add_test(NAME surface.contour
+         COMMAND test_contour
+                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-v1.txt
+                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-cv-v1.txt)
+
+add_executable(test_volume tests/test_volume.cpp)
+target_link_libraries(test_volume PRIVATE surface_quantities ingeneer_engine_flags)
+add_test(NAME surface.volume
+         COMMAND test_volume
+                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-v1.txt
+                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-cv-v1.txt)
