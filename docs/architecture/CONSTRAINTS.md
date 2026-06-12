@@ -37,5 +37,5 @@ Hard boundaries on all design and implementation work. Violations require an app
 - C-5.2 Drift prevention: before any implementation task, validate against ARCHITECTURE.md, REQUIREMENTS.md, CONSTRAINTS.md, handoff.md, adr/. On drift: STOP, produce drift report, request approval.
 - C-5.3 Migration order: knowledge first, code second, rewrite foundations when uncertain (R9 rule, D22).
 - C-5.4 No placeholder implementations in production paths; failing tests never merge; public interface changes require approval.
-- C-5.5 Monorepo top level is exactly: `apps/ libs/ research/ docs/ tools/` — nothing else at **Stage 1b exit**. **Stage 1a (ADR-0022):** skeleton five-dir layout plus named legacy exceptions until Stage 3: `orchestrator/`, `icad-addin/`, `schemas/` only.
+- C-5.5 Monorepo top level is exactly: `apps/ libs/ research/ docs/ tools/ third_party/` — nothing else at **Stage 1b exit**. **Stage 1a (ADR-0022):** skeleton layout plus named legacy exceptions until Stage 3: `orchestrator/`, `icad-addin/`, `schemas/` only. (`third_party/` added by owner ruling 2026-06-11 for vendored dependencies — governance in `third_party/README.md`.)
 - C-5.6 Every work session updates `docs/handoff.md`.

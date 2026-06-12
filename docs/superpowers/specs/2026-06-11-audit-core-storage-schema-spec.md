@@ -246,13 +246,15 @@ injected (not read from wall-clock inside the hashing path) so fixtures are repr
 - Multi-project (multiple `chain_id`) in one DB vs one DB per project. (Proposed: one DB
   per project; `chain_id` retained for forward compat.)
 
-## 8. Decision needed (human)
+## 8. Decision needed (human) — BOTH RESOLVED 2026-06-11
 
-1. Confirm the **licensed-professional identity** mechanism boundary (above) before 3.3 —
-   this touches R-2.3 legal attribution and may warrant an ADR.
-2. Confirm SHA-256 (vs SHA-3/BLAKE3) is the frozen chain hash — current grounding
-   (`audit.py`, TOTaLi) is SHA-256; this spec freezes SHA-256. Changing later is a
-   versioned migration.
+1. ~~Confirm the **licensed-professional identity** mechanism boundary~~ — **RESOLVED by
+   [ADR-0026](../../adr/ADR-0026-licensed-professional-identity.md)**: cryptographic
+   identity; promotions to APPROVED/CERTIFIED require a digital signature; offline-capable;
+   board verification optional/future, never required for certification.
+2. ~~Confirm SHA-256 is the frozen chain hash~~ — **RESOLVED by
+   [ADR-0027](../../adr/ADR-0027-baseline-freeze-protocol.md)**: SHA-256 confirmed;
+   baselines governed by freeze manifests + versioned freeze tags.
 
 ## Sources
 

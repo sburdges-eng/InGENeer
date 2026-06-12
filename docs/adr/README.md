@@ -30,5 +30,7 @@ D-numbers trace to the Architecture Discovery Interview (Rounds 1–3).
 | [0023](ADR-0023-totali-oracle-discipline.md) | TOTaLi oracle discipline (frozen semantics, fixtures) | Stage 2 | Accepted |
 | [0024](ADR-0024-stage2-component-triage.md) | Stage 2 component triage (promote vs rewrite) | Stage 2 | Accepted |
 | [0025](ADR-0025-swift-cpp-interop-direct-c-abi.md) | Swift↔C++ interop: direct C ABI, zero-copy buffers | R-11, A-6 | Accepted |
+| [0026](ADR-0026-licensed-professional-identity.md) | Licensed professional identity: cryptographic signatures, offline-capable | R-2.3, C-1.1 | Accepted |
+| [0027](ADR-0027-baseline-freeze-protocol.md) | Baseline freeze protocol: SHA-256, manifests, freeze tags | ADR-0023 | Accepted |
 
 Rejected alternatives are recorded inside each ADR. Risk register: `../architecture/RISK_REGISTER.md`.
