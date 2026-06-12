@@ -358,6 +358,41 @@ static void run() {
         CHECK_EQ(tin.breakline_count(), static_cast<std::size_t>(2));
         audit(tin);
     }
+
+    // --- 12. a FAILED insert rolls back completely (orphan-vertex regression) -----------
+    // Fuzz-found minimal repro: the Split-policy crossing creates a ROUNDED intersection
+    // vertex, so (8, 3) — exactly on the original (1,10)-(9,2) constraint line — is
+    // microscopically off the post-split constrained edges. The exact on-edge pre-split
+    // misses, the constrained-cavity repair cannot normalize the cavity, and insert()
+    // fails loudly (designed: never wire a corrupt mesh). The failure must leave NO
+    // trace: no orphan vertex, constraints intact, mesh untouched and still usable. If a
+    // future algorithmic improvement makes this insert succeed, update this block to
+    // assert success + audit instead.
+    {
+        Tin tin;
+        CHECK(tin.insert(7.0, 4.0, 0.0).has_value());
+        const TinVertex bl1[] = {{5.0, 9.0, 0.0}, {0.0, 3.0, 0.0}};
+        CHECK(tin.insert_breakline(bl1, CrossingPolicy::Reject).has_value());
+        const TinVertex bl2[] = {{6.0, 9.0, 0.0}, {1.0, 10.0, 0.0}, {9.0, 2.0, 0.0}};
+        CHECK(tin.insert_breakline(bl2, CrossingPolicy::Split).has_value());
+        audit(tin);
+
+        const std::size_t nverts = tin.vertex_count();
+        const std::size_t nconstr = tin.constrained_edge_count();
+        const std::vector<CanonTri> before = canonical(tin.triangles());
+
+        const auto r = tin.insert(8.0, 3.0, 0.0);
+        CHECK(!r.has_value());
+        CHECK(r.error().code == TinErrc::WalkOverflow);
+        CHECK_EQ(tin.vertex_count(), nverts);             // no orphan vertex
+        CHECK_EQ(tin.constrained_edge_count(), nconstr);  // constraint split rolled back
+        CHECK(canonical(tin.triangles()) == before);      // mesh untouched
+        audit(tin);
+
+        // The TIN remains fully usable after the failed insert.
+        CHECK(tin.insert(7.5, 6.0, 1.0).has_value());
+        audit(tin);
+    }
 }
 
 TEST_MAIN_RUN()

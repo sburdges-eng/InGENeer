@@ -212,6 +212,10 @@ std::expected<VertexId, TinError> Tin::insert(double x, double y, double z) noex
     vertices_.push_back(TinVertex{x, y, z});
     const VertexId p = static_cast<VertexId>(vertices_.size() - 1);
     if (!cavity_insert(p, seed)) {
+        // Every cavity_insert failure path returns before mutating the mesh, so a full
+        // rollback is exactly: un-split the constraint and drop the just-appended vertex
+        // (p was never exposed to the caller, and no triangle references it).
+        vertices_.pop_back();
         if (split_c != kGhostVertex) constrained_.insert(edge_key(split_c, split_d));
         return std::unexpected(TinError{TinErrc::WalkOverflow});
     }
