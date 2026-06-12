@@ -207,6 +207,56 @@ directions) · evaluator sign-off ✓ (APPROVE-WITH-NOTES, all actionable notes 
 **Phase 3 is EXITED.** Remaining human items unchanged: licensed-professional identity ADR
 (spec §8), SHA-256 freeze confirmation.
 
+## Session Addendum — 2026-06-11 (Phase 5 foundations + ADR-0026/0027, owner-approved)
+
+Owner approved Phase 5 and resolved both blocking decisions; this session executed them on
+`feat/phase5-geometry-core`:
+
+**ADRs (owner decisions recorded):** **ADR-0026** Licensed Professional Identity —
+cryptographic signatures required for APPROVED/CERTIFIED, offline-capable, board API
+optional/future, never required for certification. **ADR-0027** Baseline Freeze Protocol —
+SHA-256 confirmed, freeze manifests + versioned `freeze/<name>/v<n>` tags. (Owner's nominal
+"ADR-011/012" were taken; recorded as 0026/0027 with the nominal numbers noted.) Audit spec
+§8 decisions marked RESOLVED; ABI spec's proposed ADR renumbered to 0028.
+
+**third_party/ vendoring (owner governance):** `third_party/cdt/` (MPL-2.0, pinned
+`7bd85e4`) and `third_party/nanoflann/` (BSD, pinned `94cb2a6`), each with
+LICENSE/NOTICE/UPSTREAM_COMMIT; mirror-cleanly/no-fork policy in NOTICE + README; C-5.5
+amended by owner ruling to admit `third_party/`; license-allowlist scan clean; CMake
+interface targets; Phase 5.3 smoke test (CDT square+center → 4 triangles; nanoflann k-NN).
+
+**Phase 5.1/5.2 — predicates ported as OWNED code** (`libs/geometry_core`, owner
+classification: geometry correctness infrastructure, not third_party): numeric_policy.h
+verbatim; orient2d/orient3d/incircle_2d from auracad branch
+`agentic/predicates-adaptive-3d-2026-04-24`. **Five genuine defects found and fixed**
+(detail in `research/auracad/predicates-state.md`; flagged upstream, fixed only here):
+1. orient3d Layer-C cascade structurally incomplete (missing head·tail·tail terms) +
+   inexact 2-comp second-order terms → duplicate-point inputs returned ±1, antisymmetry
+   violations on 837/1296 exhaustive sweep. Replaced with full exact determinant over
+   2-component difference entries (exact expansion products).
+2. incircle Layer-C same disease (rounded pre-products, rounded cofactor heads) → same
+   exact replacement.
+3. orient2d wrapper pivot mismatch (wrapper pivot `a`, cascade pivot `c`) → det_sum scaled
+   the adaptive error bounds with wrong magnitudes → ~0.5% wrong certified signs on
+   near-degenerate uniform fuzz. Wrapper now pivots on `c` (Shewchuk canonical).
+4. **FMA contraction (H-22 realized):** Apple clang default `-ffp-contract=on` broke the
+   Layer-A filters (incircle returned ±1 for three IDENTICAL points) and two_product error
+   terms. Fixed: `#pragma STDC FP_CONTRACT OFF` in the TU + `-ffp-contract=off` on the
+   target + **check_numeric_flags.sh now FAILS if the predicates TU lacks the flag**.
+5. Validity domain documented (no-underflow caveat, same as reference predicates.c);
+   fuzz-test perturbations of exactly-zero coordinates (→ subnormals) skipped as
+   out-of-domain.
+
+**Verification:** 15/15 CTest × dev/asan-ubsan/tsan/hardened = **60/60**; **full
+10,000,000-iteration deterministic fuzz soak: zero failures** (uniform + near-degenerate +
+exact-degenerate lattice + 1-ulp perturbations; antisymmetry/cyclic/duplicate/membership
+invariants); H-22 flag verified in all 4 presets; ruff ✓ pytest 173 ✓ format ✓.
+
+**Phase 5 exit status:** 5.1/5.2 ✓ (predicate fuzz gate exceeded), 5.3 vendored + smoke ✓
+(full wrapper API lands with surface_core, Phase 6). Note: the predicates port subagent
+stalled mid-task and was completed by the main session — its draft structure was sound;
+all five defects above were upstream auracad, not introduced by the port.
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
