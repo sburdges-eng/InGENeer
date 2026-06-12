@@ -33,9 +33,9 @@ int main() {
         // Realloc while the "command buffer" still holds the old page.
         const uint64_t new_gen = ing_marena_grow(a, kBaseFloats + ((i % 7) + 1) * 96);
         assert(new_gen == gen + 1);
-        assert(ing_marena_handle_is_current(a, gen) == 0);   // stale handle invalidated
+        assert(ing_marena_handle_is_current(a, gen) == 0);  // stale handle invalidated
         assert(ing_marena_handle_is_current(a, new_gen) == 1);
-        assert(ing_marena_pages_quarantined(a) == 1);        // old page alive, quarantined
+        assert(ing_marena_pages_quarantined(a) == 1);  // old page alive, quarantined
 
         // "GPU" read of the OLD page after the realloc — ASan flags this if freed early.
         double got = 0.0;

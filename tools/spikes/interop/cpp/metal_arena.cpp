@@ -44,8 +44,8 @@ struct ing_marena {
     // grow may free the old page immediately instead of quarantining it.
     bool live_release_noted = false;
     std::unordered_map<void*, size_t> quarantine;  // old page -> byte length, kept alive
-    uint64_t released = 0;                          // quarantined pages freed after notify
-    uint64_t notifications = 0;                     // all deallocator notifications
+    uint64_t released = 0;                         // quarantined pages freed after notify
+    uint64_t notifications = 0;                    // all deallocator notifications
 };
 
 extern "C" {
