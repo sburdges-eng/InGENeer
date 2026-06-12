@@ -8,6 +8,11 @@ add_library(surface_core
 target_include_directories(surface_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(surface_core PUBLIC geometry_core PRIVATE ingeneer_engine_flags)
 
+# KERNEL_DEBUG_ASSERT tier (plan §3.4, Phase 6.5): the full constrained-Delaunay audit
+# runs automatically after every mutating Tin operation in Debug configurations — i.e.
+# the dev, asan-ubsan and tsan presets — and is compiled out of hardened/release.
+target_compile_definitions(surface_core PRIVATE $<$<CONFIG:Debug>:INGENEER_KERNEL_DEBUG_AUDIT=1>)
+
 # --- tests (CTest; dependency-free harness) -------------------------------------------
 add_executable(test_tin_basic tests/test_tin_basic.cpp)
 target_link_libraries(test_tin_basic PRIVATE surface_core ingeneer_engine_flags)
@@ -52,3 +57,37 @@ add_test(NAME surface.volume
          COMMAND test_volume
                  ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-v1.txt
                  ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/oracle/totali-corpus-500pt-cv-v1.txt)
+
+# --- Phase 6.5 fuzzing -----------------------------------------------------------------
+# Same scheme as libs/audit_core: INGENEER_FUZZ=ON builds the real libFuzzer binary
+# (needs a libFuzzer runtime — Apple clang ships none; use Homebrew LLVM with direct
+# compilation, or Linux CI). Default OFF: build the deterministic standalone driver
+# (200k op-stream inputs, full invariant audit after every op) as a CTest under whatever
+# sanitizer the preset selects.
+option(INGENEER_FUZZ "Build libFuzzer binaries (needs a libFuzzer runtime)" OFF)
+
+if(INGENEER_FUZZ)
+    add_executable(fuzz_tin fuzz/fuzz_tin.cpp)
+    target_link_libraries(fuzz_tin PRIVATE surface_core)
+    target_compile_options(fuzz_tin PRIVATE -fsanitize=fuzzer,address,undefined)
+    target_link_options(fuzz_tin PRIVATE -fsanitize=fuzzer,address,undefined)
+else()
+    add_executable(fuzz_tin_standalone fuzz/fuzz_tin.cpp fuzz/standalone_main.cpp)
+    target_link_libraries(fuzz_tin_standalone PRIVATE surface_core ingeneer_engine_flags)
+    # 200k inputs is the Phase 6.5 gate (dev / asan-ubsan). TSan is ~10x slower and adds
+    # no value to this single-threaded target beyond build coverage: run a deterministic
+    # prefix of the same stream there.
+    set(_ingeneer_tin_fuzz_iters 200000)
+    if(INGENEER_TSAN)
+        set(_ingeneer_tin_fuzz_iters 20000)
+    endif()
+    add_test(NAME surface.fuzz_tin_standalone
+             COMMAND fuzz_tin_standalone ${_ingeneer_tin_fuzz_iters})
+endif()
+
+# --- Phase 6.5 perf baselines (bench/BENCHMARKS.md) --------------------------------------
+# Not a CTest: run manually from a hardened build (never a sanitizer build):
+#   cmake --build --preset hardened --target bench_tin
+#   build/hardened/libs/surface_core/bench_tin
+add_executable(bench_tin bench/bench_tin.cpp)
+target_link_libraries(bench_tin PRIVATE surface_core ingeneer_engine_flags)

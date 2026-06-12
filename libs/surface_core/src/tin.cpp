@@ -1,10 +1,13 @@
 #include "ingeneer/surface/tin.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <unordered_map>
 #include <vector>
 
 #include "ingeneer/geom/predicates.h"
+#include "ingeneer/surface/kernel_assert.h"
 
 namespace ingeneer::surface {
 namespace {
@@ -101,6 +104,38 @@ bool Tin::conflicts(const Tri& t, double px, double py) const noexcept {
     return lox <= px && px <= hix && loy <= py && py <= hiy;
 }
 
+// Exact exhaustive seed scan (see tin.h). Containment first: a finite triangle contains
+// p iff p is not strictly RIGHT of any of its directed CCW edges. The containing triangle
+// is always a valid cavity seed: it is on p's side of every constraint barrier, and its
+// circumcircle strictly contains p (p is in the closed triangle and distinct from every
+// vertex). An arbitrary in-conflict triangle is NOT a valid seed — it can lie across a
+// constrained edge from p, making the barrier-limited cavity unrepairable (the Phase 6.5
+// fuzz-found insert-rejection wart).
+TriId Tin::exhaustive_seed(double px, double py, VertexId& dup) const noexcept {
+    dup = kGhostVertex;
+    for (TriId t = 0; t < tris_.size(); ++t) {
+        const Tri& tri = tris_[t];
+        if (!tri.alive || tri.ghost) continue;
+        bool inside = true;
+        for (int i = 0; i < 3 && inside; ++i) {
+            const VertexId u = tri.v[static_cast<std::size_t>((i + 1) % 3)];
+            const VertexId w = tri.v[static_cast<std::size_t>((i + 2) % 3)];
+            if (orient_vv(u, w, px, py) == Orientation::RIGHT) inside = false;
+        }
+        if (!inside) continue;
+        for (int i = 0; i < 3; ++i) {
+            const TinVertex& v = vertices_[tri.v[static_cast<std::size_t>(i)]];
+            if (v.x == px && v.y == py) dup = tri.v[static_cast<std::size_t>(i)];
+        }
+        return t;
+    }
+    // No finite container: p is outside the hull; some ghost claims it by construction.
+    for (TriId t = 0; t < tris_.size(); ++t) {
+        if (tris_[t].alive && tris_[t].ghost && conflicts(tris_[t], px, py)) return t;
+    }
+    return kNoTriangle;
+}
+
 // Remembering walk through finite triangles toward (px, py); ends in a ghost when the
 // point lies outside the hull. Exact duplicate vertices are reported through `dup`.
 TriId Tin::locate(double px, double py, VertexId& dup) const noexcept {
@@ -153,17 +188,20 @@ TriId Tin::locate(double px, double py, VertexId& dup) const noexcept {
         cur = next;
     }
 
-    // Fallback: exhaustive conflict scan (exact and always correct; reachable only if
-    // the walk cycles on adversarial degeneracies).
-    for (TriId t = 0; t < tris_.size(); ++t) {
-        if (tris_[t].alive && conflicts(tris_[t], px, py)) return t;
-    }
-    return kNoTriangle;
+    // Fallback: exact exhaustive seed scan. Reachable when the walk cycles — a CDT is
+    // not globally Delaunay, and the visibility walk is only guaranteed acyclic on
+    // Delaunay triangulations, so constrained meshes CAN cycle it on degenerate input.
+    return exhaustive_seed(px, py, dup);
 }
 
 std::expected<VertexId, TinError> Tin::insert(double x, double y, double z) noexcept {
     if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
         return std::unexpected(TinError{TinErrc::NonFiniteCoordinate});
+    }
+    if (!coordinate_in_domain(x) || !coordinate_in_domain(y) || !coordinate_in_domain(z)) {
+        // Outside the exact-predicate safety domain (degree-4 overflow/underflow):
+        // reject loudly rather than corrupt silently. See kCoordinateLimit.
+        return std::unexpected(TinError{TinErrc::CoordinateOutOfDomain});
     }
 
     if (!initialized_) {
@@ -175,6 +213,9 @@ std::expected<VertexId, TinError> Tin::insert(double x, double y, double z) noex
         const VertexId fresh = static_cast<VertexId>(vertices_.size() - 1);
         pending_.push_back(fresh);
         if (pending_.size() >= 3) try_bootstrap();
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+        debug_audit();
+#endif
         return fresh;
     }
 
@@ -217,15 +258,23 @@ std::expected<VertexId, TinError> Tin::insert(double x, double y, double z) noex
         // (p was never exposed to the caller, and no triangle references it).
         vertices_.pop_back();
         if (split_c != kGhostVertex) constrained_.insert(edge_key(split_c, split_d));
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+        debug_audit();
+#endif
         return std::unexpected(TinError{TinErrc::WalkOverflow});
     }
     if (split_c != kGhostVertex) {
-        // Both halves exist: the cavity contained both triangles adjacent to (c, d) (the
-        // point lies on that chord, strictly inside both circumcircles), so c and d are
-        // cavity-boundary vertices and the fresh ring connects each of them to p.
+        // Both halves exist: p lies on the (c, d) chord, so both the cavity path and the
+        // split+flip path emit the edges (c, p) and (p, d) — cavity: c and d are
+        // cavity-boundary vertices and the fresh ring connects each to p; split+flip:
+        // the 2-4 edge split creates them and Lawson flips never remove a p-incident
+        // edge (every flip replaces a link edge with an edge ending at p).
         constrained_.insert(edge_key(split_c, p));
         constrained_.insert(edge_key(split_d, p));
     }
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+    debug_audit();
+#endif
     return p;
 }
 
@@ -281,109 +330,78 @@ bool Tin::cavity_insert(VertexId p, TriId seed) noexcept {
     TriId start = seed;
     if (!conflicts(tris_[start], x, y)) {
         // Defensive: a contained point is always in conflict with its container; this
-        // path is reachable only via exotic walk terminations. Exhaustive recovery scan.
-        start = kNoTriangle;
-        for (TriId t = 0; t < tris_.size(); ++t) {
-            if (tris_[t].alive && conflicts(tris_[t], x, y)) {
-                start = t;
-                break;
-            }
-        }
-        if (start == kNoTriangle) return false;
+        // path is reachable only via exotic walk terminations. Exact containment-first
+        // recovery (a containing triangle always conflicts and is always a valid seed).
+        VertexId dup = kGhostVertex;
+        start = exhaustive_seed(x, y, dup);
+        if (start == kNoTriangle || dup != kGhostVertex) return false;
     }
 
     // ---- conflict BFS -------------------------------------------------------------
     // Constrained edges are BARRIERS (H-6): the conflict region never expands across one,
-    // so constrained edges survive subsequent point insertions.
+    // so constrained edges survive subsequent point insertions. In-cavity membership is
+    // tracked with an epoch-stamped scratch array (O(cavity) per insert, not O(tris_)).
+    if (mark_.size() < tris_.size()) mark_.resize(tris_.size(), 0);
+    if (++mark_epoch_ == 0) {
+        std::fill(mark_.begin(), mark_.end(), 0u);
+        mark_epoch_ = 1;
+    }
+    const std::uint32_t epoch = mark_epoch_;
+    const auto in_cavity = [&](TriId t) noexcept { return mark_[t] == epoch; };
+
     std::vector<TriId> cavity;
     std::vector<TriId> stack{start};
-    std::vector<bool> in_cavity(tris_.size(), false);
-    in_cavity[start] = true;
+    mark_[start] = epoch;
     while (!stack.empty()) {
         const TriId t = stack.back();
         stack.pop_back();
         cavity.push_back(t);
         for (int i = 0; i < 3; ++i) {
             const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
-            if (m == kNoTriangle || in_cavity[m] || !tris_[m].alive) continue;
+            if (m == kNoTriangle || in_cavity(m) || !tris_[m].alive) continue;
             if (!constrained_.empty() && constrained_.contains(edge_key(
                                              tris_[t].v[static_cast<std::size_t>((i + 1) % 3)],
                                              tris_[t].v[static_cast<std::size_t>((i + 2) % 3)]))) {
                 continue;  // barrier
             }
             if (conflicts(tris_[m], x, y)) {
-                in_cavity[m] = true;
+                mark_[m] = epoch;
                 stack.push_back(m);
             }
         }
     }
 
-    // ---- constrained-cavity repair ---------------------------------------------------
-    // With barriers the conflict region is no longer guaranteed star-shaped around p: it
-    // can wrap around a constraint endpoint (re-including both sides of a constrained
-    // edge) or include a triangle whose boundary edge does not see p strictly CCW. Trim
-    // (exact orient2d only) until (1) no constrained edge is cavity-interior, (2) every
-    // finite-finite boundary edge sees p strictly LEFT, and (3) the cavity is a single
-    // seed-connected component. Pure-Delaunay cavities (no constraints) never need this.
-    if (!constrained_.empty()) {
-        bool changed = true;
-        while (changed) {
-            changed = false;
-            for (const TriId t : cavity) {
-                if (!in_cavity[t]) continue;
-                for (int i = 0; i < 3 && in_cavity[t]; ++i) {
-                    const VertexId u = tris_[t].v[static_cast<std::size_t>((i + 1) % 3)];
-                    const VertexId w = tris_[t].v[static_cast<std::size_t>((i + 2) % 3)];
-                    const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
-                    const bool nb_in = (m != kNoTriangle && in_cavity[m]);
-                    if (nb_in) {
-                        if (u != kGhostVertex && w != kGhostVertex &&
-                            constrained_.contains(edge_key(u, w))) {
-                            // Wrap-around: drop the side of the constraint line away from
-                            // p (t's apex is LEFT of (u, w) by the CCW invariant). If p is
-                            // exactly on the line (beyond the segment), drop the non-seed.
-                            const Orientation sp = orient_vv(u, w, x, y);
-                            TriId drop = (sp == Orientation::LEFT) ? m : t;
-                            if (sp == Orientation::COLLINEAR) drop = (m == start) ? t : m;
-                            if (drop == start) drop = (drop == t) ? m : t;
-                            in_cavity[drop] = false;
-                            changed = true;
-                        }
-                    } else if (u != kGhostVertex && w != kGhostVertex &&
-                               orient_vv(u, w, x, y) != Orientation::LEFT) {
-                        if (t == start) return false;  // unrepairable; fail loudly
-                        in_cavity[t] = false;
-                        changed = true;
-                    }
+    // ---- cavity validity (exact orient2d only; ALWAYS on) -----------------------------
+    // With constraint barriers the conflict region is no longer guaranteed star-shaped
+    // around p: it can wrap around a constraint endpoint (re-including both sides of a
+    // constrained edge, i.e. a cavity-INTERIOR constrained edge) or include a triangle
+    // whose finite boundary edge does not see p strictly CCW. Such a cavity cannot be
+    // wired as a star of p; heuristically trimming it produces locally non-Delaunay
+    // meshes. Detect the condition BEFORE mutating and divert to the classical
+    // split+flip insertion, which is always structurally correct.
+    //
+    // The star check runs for PURE-Delaunay cavities too: with a correct incircle they
+    // are star-shaped by theorem (the check is then pure insurance), but geometry_core's
+    // incircle_2d Layer-A filter defect (see debug_audit) can certify garbage conflict
+    // answers and pollute the cavity with non-conflicting triangles — observed under
+    // fuzz wiring inverted (non-CCW) triangles from a far-outside-hull insert. Exact
+    // orient2d (whose filter is sound) is the structural backstop.
+    bool valid = true;
+    for (const TriId t : cavity) {
+        for (int i = 0; i < 3 && valid; ++i) {
+            const VertexId u = tris_[t].v[static_cast<std::size_t>((i + 1) % 3)];
+            const VertexId w = tris_[t].v[static_cast<std::size_t>((i + 2) % 3)];
+            if (u == kGhostVertex || w == kGhostVertex) continue;
+            const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
+            if (m != kNoTriangle && in_cavity(m)) {
+                if (!constrained_.empty() && constrained_.contains(edge_key(u, w))) {
+                    valid = false;  // wrap-around
                 }
-            }
-            // Keep only the seed-connected component.
-            std::vector<TriId> reach_stack{start};
-            std::vector<bool> reached(tris_.size(), false);
-            reached[start] = true;
-            while (!reach_stack.empty()) {
-                const TriId t = reach_stack.back();
-                reach_stack.pop_back();
-                for (int i = 0; i < 3; ++i) {
-                    const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
-                    if (m == kNoTriangle || reached[m] || !in_cavity[m]) continue;
-                    reached[m] = true;
-                    reach_stack.push_back(m);
-                }
-            }
-            for (const TriId t : cavity) {
-                if (in_cavity[t] && !reached[t]) {
-                    in_cavity[t] = false;
-                    changed = true;
-                }
+            } else if (orient_vv(u, w, x, y) != Orientation::LEFT) {
+                valid = false;  // boundary edge does not see p: not a star of p
             }
         }
-        std::vector<TriId> kept;
-        kept.reserve(cavity.size());
-        for (const TriId t : cavity) {
-            if (in_cavity[t]) kept.push_back(t);
-        }
-        cavity.swap(kept);
+        if (!valid) break;
     }
 
     // ---- boundary edges -> new triangles (u, w, p) ----------------------------------
@@ -392,29 +410,68 @@ bool Tin::cavity_insert(VertexId p, TriId seed) noexcept {
         TriId id, outside;
     };
     std::vector<NewTri> fresh;
-    for (const TriId t : cavity) {
-        for (int i = 0; i < 3; ++i) {
-            const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
-            if (m != kNoTriangle && in_cavity[m]) continue;
-            const VertexId u = tris_[t].v[static_cast<std::size_t>((i + 1) % 3)];
-            const VertexId w = tris_[t].v[static_cast<std::size_t>((i + 2) % 3)];
-            fresh.push_back(NewTri{u, w, kNoTriangle, m});
+    if (valid) {
+        for (const TriId t : cavity) {
+            for (int i = 0; i < 3; ++i) {
+                const TriId m = tris_[t].n[static_cast<std::size_t>(i)];
+                if (m != kNoTriangle && in_cavity(m)) continue;
+                const VertexId u = tris_[t].v[static_cast<std::size_t>((i + 1) % 3)];
+                const VertexId w = tris_[t].v[static_cast<std::size_t>((i + 2) % 3)];
+                fresh.push_back(NewTri{u, w, kNoTriangle, m});
+            }
         }
-    }
-    {
-        // The retriangulation below assumes the cavity boundary is a single cycle, i.e.
-        // each vertex appears exactly once as a first and once as a second endpoint. A
-        // violation is conceivable only for a pathological constrained cavity that repair
-        // could not normalize: fail loudly BEFORE mutating anything rather than wire a
-        // corrupt mesh. Unreachable for pure-Delaunay cavities.
-        std::unordered_set<VertexId> firsts;
+        // The retriangulation below assumes the cavity boundary is a SINGLE cycle:
+        // each vertex appears exactly once as a first and once as a second endpoint,
+        // AND following the (u -> w) links from any edge visits every boundary edge
+        // before closing. The uniqueness check alone misses a cavity that encloses an
+        // island of non-cavity triangles (two disjoint cycles — possible only when the
+        // defective incircle pollutes the conflict region; see debug_audit), which
+        // would wire a non-manifold star. Detected BEFORE mutating anything.
+        std::unordered_map<VertexId, VertexId> next;
         std::unordered_set<VertexId> seconds;
-        firsts.reserve(fresh.size());
+        next.reserve(fresh.size());
         seconds.reserve(fresh.size());
         for (const NewTri& nt : fresh) {
-            if (!firsts.insert(nt.u).second) return false;
-            if (!seconds.insert(nt.w).second) return false;
+            if (!next.emplace(nt.u, nt.w).second || !seconds.insert(nt.w).second) {
+                valid = false;
+                break;
+            }
         }
+        if (valid && !fresh.empty()) {
+            std::size_t steps = 0;
+            VertexId cur = fresh.front().u;
+            do {
+                const auto it = next.find(cur);
+                if (it == next.end()) {
+                    valid = false;
+                    break;
+                }
+                cur = it->second;
+                ++steps;
+            } while (cur != fresh.front().u && steps <= fresh.size());
+            if (steps != fresh.size()) valid = false;
+        }
+        // Every finite vertex of a cavity triangle must lie ON the boundary cycle: a
+        // polluted cavity (defective incircle; see debug_audit) can swallow a vertex's
+        // entire star, and the star-of-p rewiring would orphan that vertex (Euler and
+        // valence corruption). Unreachable with a correct predicate.
+        if (valid) {
+            for (const TriId t : cavity) {
+                for (int i = 0; i < 3 && valid; ++i) {
+                    const VertexId v = tris_[t].v[static_cast<std::size_t>(i)];
+                    if (v != kGhostVertex && !next.contains(v)) valid = false;
+                }
+                if (!valid) break;
+            }
+        }
+    }
+    if (!valid) {
+        // Divert to split+flip. Requires the actual container; the walk/seed gives it
+        // exactly when finite (the walk stops only at a triangle with no strictly-RIGHT
+        // edge). For p outside the hull (ghost seed) there is no container: fail loudly
+        // before any mutation — insert() rolls back wholesale.
+        if (tris_[start].ghost) return false;
+        return insert_split_flip(p, start);
     }
     for (const TriId t : cavity) release_tri(t);
     for (NewTri& nt : fresh) {
@@ -461,6 +518,380 @@ bool Tin::cavity_insert(VertexId p, TriId seed) noexcept {
         }
     }
     return true;
+}
+
+void Tin::replace_neighbor(TriId t, TriId from, TriId to) noexcept {
+    if (t == kNoTriangle) return;
+    for (int i = 0; i < 3; ++i) {
+        if (tris_[t].n[static_cast<std::size_t>(i)] == from) {
+            tris_[t].n[static_cast<std::size_t>(i)] = to;
+            return;
+        }
+    }
+    KERNEL_ASSERT(false, "replace_neighbor: stale neighbor link");
+}
+
+// Classical CDT vertex insertion: split the containing triangle (1->3, or 2->4 when p is
+// exactly on an edge), then restore the constrained-Delaunay property by Lawson flips of
+// p's link edges. Constrained edges and hull (ghost-adjacent) edges are never flipped.
+// Every flip replaces a link edge (u, w) with the edge (p, apex), adding exactly one
+// p-incident triangle, so the loop terminates after fewer than vertex_count() flips and
+// p-incident edges (in particular re-constrained split halves) are never removed. This is
+// the fallback for cavities the barrier-BFS cannot shape into a valid star; it always
+// succeeds for p inside the hull (the standard CDT insertion result). All classification
+// is exact (orient2d / incircle_2d).
+bool Tin::insert_split_flip(VertexId p, TriId container) noexcept {
+    const double x = vertices_[p].x;
+    const double y = vertices_[p].y;
+    const Tri t0 = tris_[container];
+
+    // Exact containment re-verification: 0 collinear edges -> strictly inside (1->3);
+    // exactly 1 -> on that edge's interior (2->4); otherwise p coincides with a vertex
+    // (screened earlier) or lies outside: fail BEFORE mutating (insert() rolls back).
+    int collinear_at = -1;
+    int ncol = 0;
+    for (int i = 0; i < 3; ++i) {
+        const VertexId u = t0.v[static_cast<std::size_t>((i + 1) % 3)];
+        const VertexId w = t0.v[static_cast<std::size_t>((i + 2) % 3)];
+        const Orientation o = orient_vv(u, w, x, y);
+        if (o == Orientation::RIGHT) return false;
+        if (o == Orientation::COLLINEAR) {
+            collinear_at = i;
+            ++ncol;
+        }
+    }
+    if (ncol > 1) return false;
+
+    std::vector<TriId> suspects;  // p-incident finite triangles whose link edge to check
+    if (ncol == 0) {
+        // ---- 1 -> 3 split ------------------------------------------------------------
+        const VertexId a = t0.v[0];
+        const VertexId b = t0.v[1];
+        const VertexId c = t0.v[2];
+        const TriId nA = t0.n[0];     // across (b, c)
+        const TriId nB = t0.n[1];     // across (c, a)
+        const TriId nC = t0.n[2];     // across (a, b)
+        const TriId tab = container;  // reuse: keeps nC's back-link valid
+        const TriId tbc = alloc_tri();
+        const TriId tca = alloc_tri();
+        tris_[tab].v = {a, b, p};
+        tris_[tab].n = {tbc, tca, nC};
+        tris_[tbc].v = {b, c, p};
+        tris_[tbc].n = {tca, tab, nA};
+        tris_[tca].v = {c, a, p};
+        tris_[tca].n = {tab, tbc, nB};
+        replace_neighbor(nA, container, tbc);
+        replace_neighbor(nB, container, tca);
+        suspects = {tab, tbc, tca};
+    } else {
+        // ---- 2 -> 4 split (p exactly on edge (u, w); the edge is NOT constrained: an
+        // exactly-on-constrained-edge point was pre-split by insert(), which un-flags the
+        // edge before the cavity machinery runs) ----------------------------------------
+        const std::size_t ia = static_cast<std::size_t>(collinear_at);
+        const TriId m = t0.n[ia];  // across (u, w); never kNoTriangle post-bootstrap
+        if (m == kNoTriangle || !tris_[m].alive) return false;
+        split_edge(container, ia, p, suspects);
+    }
+    last_tri_ = suspects.front();
+    lawson_restore(p, std::move(suspects));
+    return true;
+}
+
+// 2->4 split of `container`'s edge opposite v[ia] at vertex p; see tin.h. The split is
+// purely combinatorial: the caller (insert_split_flip) guarantees (exact orient2d) that
+// p is exactly on the shared edge, so the resulting finite triangles are strictly CCW.
+void Tin::split_edge(TriId container, std::size_t ia, VertexId p, std::vector<TriId>& suspects) {
+    const Tri t0 = tris_[container];
+    const VertexId a = t0.v[ia];
+    const VertexId u = t0.v[(ia + 1) % 3];
+    const VertexId w = t0.v[(ia + 2) % 3];
+    const TriId m = t0.n[ia];  // across (u, w)
+    KERNEL_ASSERT(m != kNoTriangle && tris_[m].alive, "split_edge: dead mate");
+    (void)a;
+    const TriId t_au = container;  // becomes (a, u, p); keeps the (a,u) back-link
+    const TriId t_aw = alloc_tri();
+    tris_[t_au].v = {a, u, p};
+    tris_[t_aw].v = {a, p, w};
+    tris_[t_au].n[1] = t_aw;                // across (p, a)
+    tris_[t_au].n[2] = t0.n[(ia + 2) % 3];  // across (a, u): unchanged neighbor
+    tris_[t_aw].n[2] = t_au;                // across (a, p)
+    tris_[t_aw].n[1] = t0.n[(ia + 1) % 3];  // across (w, a)
+    replace_neighbor(t0.n[(ia + 1) % 3], container, t_aw);
+    suspects.push_back(t_au);
+    suspects.push_back(t_aw);
+
+    const Tri m0 = tris_[m];
+    if (!m0.ghost) {
+        // Finite mate (d, w, u) in some rotation; split into (d, w, p) + (d, p, u).
+        std::size_t id = 0;
+        while (m0.v[id] == u || m0.v[id] == w) ++id;
+        const VertexId d = m0.v[id];
+        const TriId m_dw = m;  // becomes (d, w, p); keeps the (d,w) back-link
+        const TriId m_du = alloc_tri();
+        tris_[m_dw].v = {d, w, p};
+        tris_[m_du].v = {d, p, u};
+        tris_[m_dw].n = {t_aw, m_du, m0.n[(id + 2) % 3]};  // across (d,w) unchanged
+        tris_[m_du].n = {t_au, m0.n[(id + 1) % 3], m_dw};  // across (u,d) re-linked
+        replace_neighbor(m0.n[(id + 1) % 3], m, m_du);
+        tris_[t_au].n[0] = m_du;  // across (u, p)
+        tris_[t_aw].n[0] = m_dw;  // across (p, w)
+        suspects.push_back(m_dw);
+        suspects.push_back(m_du);
+    } else {
+        // Ghost mate: p is exactly on a hull edge. The ghost stores the hull edge
+        // REVERSED (interior on the right of u' -> w'), i.e. (w, u); split it into
+        // ghosts (w, p) and (p, u) so the hull gains p.
+        std::size_t ig = 0;
+        while (m0.v[ig] != kGhostVertex) ++ig;
+        KERNEL_ASSERT(m0.v[(ig + 1) % 3] == w && m0.v[(ig + 2) % 3] == u,
+                      "ghost finite edge does not match the split edge");
+        const TriId g_wp = m;  // becomes (w, p, ghost); keeps the w-side ghost link
+        const TriId g_pu = alloc_tri();
+        tris_[g_wp].v = {w, p, kGhostVertex};
+        tris_[g_wp].ghost = true;
+        tris_[g_pu].v = {p, u, kGhostVertex};
+        tris_[g_pu].ghost = true;
+        // Ghost neighbor layout: n[ghost-index] = finite mate; the other two entries
+        // link the adjacent ghosts around the hull (n[i] opposite v[i]).
+        const TriId ghost_at_u = m0.n[(ig + 1) % 3];  // opposite w: ghost sharing u
+        const TriId ghost_at_w = m0.n[(ig + 2) % 3];  // opposite u: ghost sharing w
+        tris_[g_wp].n = {g_pu, ghost_at_w, t_aw};
+        tris_[g_pu].n = {ghost_at_u, g_wp, t_au};
+        replace_neighbor(ghost_at_u, m, g_pu);
+        tris_[t_au].n[0] = g_pu;  // across (u, p)
+        tris_[t_aw].n[0] = g_wp;  // across (p, w)
+    }
+}
+
+// Lawson flips on the link of freshly inserted p; see tin.h.
+void Tin::lawson_restore(VertexId p, std::vector<TriId> suspects) noexcept {
+    const double x = vertices_[p].x;
+    const double y = vertices_[p].y;
+    while (!suspects.empty()) {
+        const TriId t = suspects.back();
+        suspects.pop_back();
+        std::size_t ip = 0;
+        while (ip < 3 && tris_[t].v[ip] != p) ++ip;
+        KERNEL_ASSERT(ip < 3, "suspect triangle lost its p vertex");
+        const VertexId u = tris_[t].v[(ip + 1) % 3];
+        const VertexId w = tris_[t].v[(ip + 2) % 3];
+        if (u == kGhostVertex || w == kGhostVertex) continue;  // ghost link edge
+        const TriId m = tris_[t].n[ip];
+        if (m == kNoTriangle || tris_[m].ghost) continue;     // hull edge: never flipped
+        if (constrained_.contains(edge_key(u, w))) continue;  // barrier: never flipped
+        std::size_t im = 0;
+        while (tris_[m].v[im] == u || tris_[m].v[im] == w) ++im;
+        const VertexId am = tris_[m].v[im];
+        if (am == kGhostVertex) continue;
+        const Point2 pp{x, y};
+        const Point2 pu{vertices_[u].x, vertices_[u].y};
+        const Point2 pw{vertices_[w].x, vertices_[w].y};
+        const Point2 pm{vertices_[am].x, vertices_[am].y};
+        if (incircle_2d(pp, pu, pw, pm) != Orientation::LEFT) continue;  // locally Delaunay
+        // Flip validity (strictly convex quad p-u-am-w) is guaranteed by the classical
+        // insertion theory when starting from a CDT and an EXACT incircle. Exact orient2d
+        // guard regardless: never wire an inverted triangle — the mesh stays a valid
+        // triangulation either way.
+        if (orient2d(pp, pu, pm) != Orientation::LEFT ||
+            orient2d(pp, pm, pw) != Orientation::LEFT) {
+            continue;
+        }
+        // (u, w) -> (p, am): t becomes (p, u, am), m becomes (p, am, w).
+        const TriId t_pu = tris_[t].n[(ip + 2) % 3];  // across (p, u): stays with t
+        const TriId t_wp = tris_[t].n[(ip + 1) % 3];  // across (w, p): moves to m
+        std::size_t iu = 0;                           // index of u in m
+        while (tris_[m].v[iu] != u) ++iu;
+        std::size_t iw = 0;  // index of w in m
+        while (tris_[m].v[iw] != w) ++iw;
+        const TriId m_ua = tris_[m].n[iw];  // across (u, am): moves to t
+        const TriId m_aw = tris_[m].n[iu];  // across (am, w): stays with m
+        tris_[t].v = {p, u, am};
+        tris_[t].n = {m_ua, m, t_pu};
+        tris_[m].v = {p, am, w};
+        tris_[m].n = {m_aw, t_wp, t};
+        replace_neighbor(t_wp, t, m);
+        replace_neighbor(m_ua, m, t);
+        suspects.push_back(t);
+        suspects.push_back(m);
+    }
+}
+
+// Edge-keyed Lawson legalization; see tin.h. Used after constraint RELOCATION un-flags
+// an edge that stays in the mesh: while constrained it was exempt from the Delaunay
+// criterion, so it may violate it the moment the flag drops — and every recovery step
+// after that point assumes the mesh is the CDT of the current constraint set. The O(T)
+// directed-edge scan per worklist item is acceptable: this runs only on the rare
+// rounded-intersection-hits-existing-vertex path (same idiom as tri_with_vertex).
+void Tin::legalize_edge(VertexId c, VertexId d) noexcept {
+    std::vector<std::pair<VertexId, VertexId>> work{{c, d}};
+    while (!work.empty()) {
+        const auto [u, w] = work.back();
+        work.pop_back();
+        if (u == kGhostVertex || w == kGhostVertex) continue;
+        if (constrained_.contains(edge_key(u, w))) continue;
+        TriId t = kNoTriangle;
+        std::size_t is = 3;
+        for (TriId i = 0; i < tris_.size() && t == kNoTriangle; ++i) {
+            const Tri& tri = tris_[i];
+            if (!tri.alive || tri.ghost) continue;
+            for (std::size_t k = 0; k < 3; ++k) {
+                if (tri.v[(k + 1) % 3] == u && tri.v[(k + 2) % 3] == w) {
+                    t = i;
+                    is = k;
+                    break;
+                }
+            }
+        }
+        if (t == kNoTriangle) continue;  // not (any longer) a finite mesh edge
+        const TriId m = tris_[t].n[is];
+        if (m == kNoTriangle || !tris_[m].alive || tris_[m].ghost) continue;  // hull edge
+        const VertexId s = tris_[t].v[is];
+        std::size_t io = 0;
+        while (tris_[m].v[io] == u || tris_[m].v[io] == w) ++io;
+        const VertexId o = tris_[m].v[io];
+        if (s == kGhostVertex || o == kGhostVertex) continue;
+        const Point2 ps{vertices_[s].x, vertices_[s].y};
+        const Point2 pu{vertices_[u].x, vertices_[u].y};
+        const Point2 pw{vertices_[w].x, vertices_[w].y};
+        const Point2 po{vertices_[o].x, vertices_[o].y};
+        if (incircle_2d(ps, pu, pw, po) != Orientation::LEFT) continue;  // locally Delaunay
+        // A due flip's quad is strictly convex (classical); exact guard regardless —
+        // never wire an inverted triangle.
+        if (orient2d(ps, pu, po) != Orientation::LEFT ||
+            orient2d(ps, po, pw) != Orientation::LEFT) {
+            continue;
+        }
+        // (u, w) -> (s, o): t becomes (s, u, o), m becomes (s, o, w) — identical
+        // bookkeeping to lawson_restore's flip with p := s, am := o.
+        const TriId t_su = tris_[t].n[(is + 2) % 3];  // across (s, u): stays with t
+        const TriId t_ws = tris_[t].n[(is + 1) % 3];  // across (w, s): moves to m
+        std::size_t iu = 0;
+        while (tris_[m].v[iu] != u) ++iu;
+        std::size_t iw = 0;
+        while (tris_[m].v[iw] != w) ++iw;
+        const TriId m_uo = tris_[m].n[iw];  // across (u, o): moves to t
+        const TriId m_ow = tris_[m].n[iu];  // across (o, w): stays with m
+        tris_[t].v = {s, u, o};
+        tris_[t].n = {m_uo, m, t_su};
+        tris_[m].v = {s, o, w};
+        tris_[m].n = {m_ow, t_ws, t};
+        replace_neighbor(t_ws, t, m);
+        replace_neighbor(m_uo, m, t);
+        work.push_back({s, u});
+        work.push_back({u, o});
+        work.push_back({o, w});
+        work.push_back({w, s});
+    }
+}
+
+// KERNEL_DEBUG_ASSERT-tier full-mesh audit; see tin.h for the contract.
+void Tin::debug_audit() const noexcept {
+    if (!initialized_) return;  // pre-bootstrap: no mesh to audit
+    const std::size_t n = vertices_.size();
+
+    struct Incidence {
+        TriId tri;
+        VertexId apex;
+    };
+    std::unordered_map<std::uint64_t, std::vector<Incidence>> finite_edges;
+    std::size_t nfinite = 0;
+    std::size_t nghost = 0;
+    for (TriId t = 0; t < tris_.size(); ++t) {
+        const Tri& tri = tris_[t];
+        if (!tri.alive) continue;
+        int ghosts = 0;
+        for (int i = 0; i < 3; ++i) {
+            const VertexId v = tri.v[static_cast<std::size_t>(i)];
+            if (v == kGhostVertex) {
+                ++ghosts;
+            } else {
+                KERNEL_ASSERT(v < n, "triangle references an out-of-range vertex");
+            }
+        }
+        KERNEL_ASSERT(ghosts == (tri.ghost ? 1 : 0), "ghost flag / ghost vertex mismatch");
+        if (tri.ghost) {
+            ++nghost;
+        } else {
+            ++nfinite;
+            KERNEL_ASSERT(
+                orient2d(Point2{vertices_[tri.v[0]].x, vertices_[tri.v[0]].y},
+                         Point2{vertices_[tri.v[1]].x, vertices_[tri.v[1]].y},
+                         Point2{vertices_[tri.v[2]].x, vertices_[tri.v[2]].y}) == Orientation::LEFT,
+                "finite triangle is not strictly CCW");
+        }
+        for (int i = 0; i < 3; ++i) {
+            const VertexId u = tri.v[static_cast<std::size_t>((i + 1) % 3)];
+            const VertexId w = tri.v[static_cast<std::size_t>((i + 2) % 3)];
+            const TriId m = tri.n[static_cast<std::size_t>(i)];
+            KERNEL_ASSERT(m != kNoTriangle && m < tris_.size() && tris_[m].alive,
+                          "triangle has a dead or missing neighbor");
+            // Neighbor symmetry: m must hold the same undirected edge and link back.
+            bool back = false;
+            for (int j = 0; j < 3; ++j) {
+                const VertexId mu = tris_[m].v[static_cast<std::size_t>((j + 1) % 3)];
+                const VertexId mw = tris_[m].v[static_cast<std::size_t>((j + 2) % 3)];
+                if (((mu == u && mw == w) || (mu == w && mw == u)) &&
+                    tris_[m].n[static_cast<std::size_t>(j)] == t) {
+                    back = true;
+                    break;
+                }
+            }
+            KERNEL_ASSERT(back, "neighbor symmetry violated");
+            if (!tri.ghost && u != kGhostVertex && w != kGhostVertex) {
+                finite_edges[edge_key(u, w)].push_back(
+                    Incidence{t, tri.v[static_cast<std::size_t>(i)]});
+            }
+        }
+    }
+
+    KERNEL_ASSERT(nfinite == 2 * n - 2 - nghost, "Euler invariant T = 2n - 2 - h violated");
+
+    for (const std::uint64_t k : constrained_) {
+        KERNEL_ASSERT(finite_edges.contains(k), "constrained edge missing from the mesh");
+    }
+
+    for (const auto& [key, inc] : finite_edges) {
+        KERNEL_ASSERT(inc.size() <= 2, "edge valence exceeds 2");
+        if (inc.size() != 2 || constrained_.contains(key)) continue;
+        // Local constrained-Delaunay: neither apex strictly inside the other's
+        // circumcircle (by the Delaunay lemma the local property implies the global
+        // one). The two directional tests are mathematically EQUIVALENT statements about
+        // the same quad; a violation is reported only when BOTH agree.
+        //
+        // FATAL (kCdtOptimalityFatal == true) since the geometry_core incircle_2d
+        // Layer-A permanent fix landed (the filter previously scaled its bound by the
+        // CANCELLED 2x2 minors instead of Shewchuk's sum of absolute products and could
+        // certify wrong signs; found BY this audit under Phase 6.5 fuzzing, regression
+        // vectors in geometry_core test_predicates.cpp).
+        Orientation dir[2];
+        for (int k2 = 0; k2 < 2; ++k2) {
+            const Tri& tri = tris_[inc[static_cast<std::size_t>(k2)].tri];
+            const VertexId other = inc[static_cast<std::size_t>(1 - k2)].apex;
+            dir[k2] = incircle_2d(Point2{vertices_[tri.v[0]].x, vertices_[tri.v[0]].y},
+                                  Point2{vertices_[tri.v[1]].x, vertices_[tri.v[1]].y},
+                                  Point2{vertices_[tri.v[2]].x, vertices_[tri.v[2]].y},
+                                  Point2{vertices_[other].x, vertices_[other].y});
+        }
+        if (dir[0] == Orientation::LEFT && dir[1] == Orientation::LEFT) {
+            constexpr bool kCdtOptimalityFatal = true;
+            static unsigned long cdt_violations = 0;
+            ++cdt_violations;
+            if (cdt_violations <= 8) {
+                // Round-trip-exact (%.17g) dump so findings are reproducible offline.
+                const Tri& tri = tris_[inc[0].tri];
+                const VertexId other = inc[1].apex;
+                std::fprintf(stderr,
+                             "debug_audit CDT-optimality violation #%lu: tri (%.17g,%.17g) "
+                             "(%.17g,%.17g) (%.17g,%.17g) apex (%.17g,%.17g)\n",
+                             cdt_violations, vertices_[tri.v[0]].x, vertices_[tri.v[0]].y,
+                             vertices_[tri.v[1]].x, vertices_[tri.v[1]].y, vertices_[tri.v[2]].x,
+                             vertices_[tri.v[2]].y, vertices_[other].x, vertices_[other].y);
+            }
+            KERNEL_ASSERT(!kCdtOptimalityFatal,
+                          "local constrained-Delaunay property violated on a "
+                          "non-constrained edge (confirmed by both directional tests)");
+        }
+    }
 }
 
 }  // namespace ingeneer::surface

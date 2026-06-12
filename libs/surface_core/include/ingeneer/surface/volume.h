@@ -15,12 +15,20 @@
 //   fill = ∫ max(-d, 0) — existing surface BELOW the reference: material to add.
 // Both are reported non-negative; net() = cut - fill (positive => net excavation).
 //
-// Two-surface volumes (v1 scope): supported when both TINs share the same point support
-// (identical vertex xy per id, identical triangle set), e.g. design and existing sampled on
-// the same grid. The general merge of two INDEPENDENT triangulations is deferred (Phase 6.3
-// design note): it requires overlaying both TINs into a combined planar subdivision so the
-// difference field is piecewise linear on every output face — tracked as deferred work, not
-// approximated here.
+// Two-surface volumes: `volume_between` handles two INDEPENDENT triangulations (the real
+// design-vs-existing surveying case) by pairwise triangle overlay. For every triangle pair
+// (tA, tB) whose xy projections properly overlap (exact-predicate separating-axis test;
+// point/segment contacts contribute exactly zero), the convex intersection polygon is
+// computed (Sutherland–Hodgman with orient2d vertex classification; intersection points by
+// double interpolation). Both surfaces are linear over that polygon, so the difference
+// field d = z_existing - z_design is linear there and its positive/negative parts integrate
+// exactly via the same prism clipping as volume_to_plane — exact for piecewise-linear
+// surfaces up to double rounding, no sampling or rasterization. Volumes are accumulated
+// over the INTERSECTION of the two convex hulls; `VolumeResult::area` reports that overlap
+// plan area so callers can detect partial coverage. When both TINs share identical point
+// support (identical vertex xy per id, identical triangle set) an O(n) fast path is taken;
+// it produces the same result as the overlay. Pairing uses a sort-by-bbox prefilter;
+// an asymptotically optimal plane-sweep/DCEL overlay is noted as future work.
 //
 // Prismoidal formula for corridor/alignment reports (DOT manuals): V = L/6 (A1 + 4 Am + A2),
 // exact for prismatoids (area varying quadratically along the axis). Average-end-area is
@@ -38,8 +46,9 @@
 namespace ingeneer::surface {
 
 enum class VolumeErrc {
-    NonFiniteInput,   // NaN or +-inf reference plane
-    UnsharedSupport,  // two-surface volume requested for TINs without identical support
+    NonFiniteInput,  // NaN or +-inf reference plane
+    // UnsharedSupport was removed when the independent-triangulation overlay landed:
+    // volume_between now handles arbitrary supports, so the condition no longer exists.
 };
 
 struct VolumeError {
@@ -47,9 +56,14 @@ struct VolumeError {
 };
 
 // Earthwork quantities in cubic metres (both non-negative; see sign convention above).
+// `area` is the plan area (square metres) of the region the volumes were integrated over:
+// the TIN footprint for volume_to_plane, the intersection of the two convex hulls for
+// volume_between. Callers compare it against their expected footprint to detect partial
+// hull coverage.
 struct VolumeResult {
     double cut = 0.0;
     double fill = 0.0;
+    double area = 0.0;
     double net() const noexcept { return cut - fill; }
 };
 
@@ -57,10 +71,13 @@ struct VolumeResult {
 // TIN's plan footprint (its convex hull).
 std::expected<VolumeResult, VolumeError> volume_to_plane(const Tin& existing, double plane_z);
 
-// Cut/fill between two surfaces with SHARED point support: `design` and `existing` must
-// have identical vertex count, bit-identical xy per vertex id, and identical triangle
-// sets (z may differ). d = z_existing - z_design per vertex; cut is existing above design.
-// Returns VolumeErrc::UnsharedSupport otherwise (independent-triangulation merge deferred).
+// Cut/fill between two surfaces over the intersection of their convex hulls. The
+// triangulations may be fully INDEPENDENT (no shared point support) — see the overlay
+// description in the file header. d = z_existing - z_design; cut is existing above design.
+// A TIN with no finite triangles yields an empty overlap (all-zero result). Shared-support
+// inputs (identical vertex xy per id and identical triangle sets) take an O(n) fast path
+// with identical semantics. Never fails today; the error channel is kept for API symmetry
+// with volume_to_plane and future diagnostics.
 std::expected<VolumeResult, VolumeError> volume_between(const Tin& design, const Tin& existing);
 
 // Prismoidal volume of one corridor interval: V = length/6 * (area1 + 4*area_mid + area2).
