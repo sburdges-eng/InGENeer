@@ -89,3 +89,62 @@ Phase 6.3 work stream this session. Add their baselines when that stream lands.
 * Sanitizer lanes additionally run the KERNEL_DEBUG_ASSERT-tier full-mesh audit after
   every mutating op (`INGENEER_KERNEL_DEBUG_AUDIT`, Debug configs only); it is compiled
   out of this hardened build and has zero cost here.
+
+## Contours & volumes (Phase 6 exit)
+
+Recorded 2026-06-12 at merge commit `b5bfb03` (post Phase 6.3/6.5 landing) on the same
+machine/preset as the Environment table above (Apple M4, `hardened` preset, Apple
+clang 21.0.0). Baselines, not targets. Same methodology: fixed-seed LCG synthetic
+surfaces (deterministic, C-4.6); 3 runs, **median** reported. TIN construction is NOT
+included in any measured time.
+
+### Reproduce
+
+```bash
+cmake --preset hardened
+cmake --build --preset hardened --target bench_quantities
+build/hardened/libs/surface_core/bench_quantities             # all workloads
+build/hardened/libs/surface_core/bench_quantities contours    # one workload
+# workloads: contours | volplane | volshared | overlay10k | overlay50k
+```
+
+Surfaces are smooth synthetic height fields (long-wavelength sinusoids + tilt, z ~ 10–95 m)
+over LCG-random xy in [0, 10000]²; see `bench/bench_quantities.cpp` for the exact fields.
+
+### Contour extraction
+
+| Workload | Median total | Median / level | Output |
+|---|---:|---:|---|
+| `contours` — 100 k-pt TIN (199 970 tris), 20 evenly spaced levels | 0.024 s | 1.20 ms/level | 28 polylines, 19 249 segments |
+| `chaikin x2` — Chaikin smoothing (2 iterations) of all 28 contours, timed separately | 0.352 ms | 0.018 ms/level | 77 052 smoothed points |
+
+Extraction is a full finite-triangle scan per level plus combinatorial chaining — cost is
+O(T) per level and essentially independent of how many segments a level produces. The
+smooth field yields few but long polylines (~1.4 polylines, ~960 segments per level);
+the derived Chaikin pass is ~70× cheaper than extraction and is cosmetic-only (C-1.3).
+
+### Volumes
+
+| Workload | Median | Result sanity |
+|---|---:|---|
+| `volplane` — volume_to_plane, 100 k-pt TIN, plane at mid elevation | 0.003 s | area = TIN footprint (25.0 km²) |
+| `volshared` — volume_between, shared-support fast path: two 100 k-pt TINs, identical xy stream (identical triangle sets), two z-fields | 0.028 s | area = footprint (identical hulls) |
+| `overlay10k` — volume_between, general overlay: two INDEPENDENT 10 k-pt triangulations (different xy seeds, same region) | 0.271 s | cut/fill within 0.3 % of `volshared`'s densest answer |
+| `overlay50k` — same, 50 k vs 50 k | 6.146 s | hull-intersection area converges to footprint |
+
+### Notes (honest characterization)
+
+* **The general overlay is super-linear**: 10 k→50 k per surface (5×) costs 22.7×
+  (~n^1.9 observed). The documented non-asymptotic part is the sort-by-bbox prefilter
+  pairing (`volume.cpp`); candidate pairs grow faster than the O(n) truly-overlapping
+  pairs. The header already notes a plane-sweep/DCEL overlay as future work — out of
+  scope here.
+* The shared-support fast path is ~10× the cost of `volume_to_plane` on the same point
+  count (it walks both meshes and verifies support identity) and ~220× cheaper than the
+  50 k general overlay — detecting shared support is very much worth it.
+* `volshared` deliberately uses two TINs built from the SAME xy stream; random points
+  have no cocircular ties, so both Delaunay triangulations are identical and the fast
+  path is taken (verified: identical `area` to `volplane`'s footprint).
+* Cut and fill are individually exact per the mixed-triangle d = 0 split (volume.h);
+  the overlay rows agree with the shared-support answer to <0.3 % at 10 k and <0.05 %
+  at 50 k, as expected for independent samplings of the same pair of smooth fields.

@@ -96,3 +96,9 @@ endif()
 #   build/hardened/libs/surface_core/bench_tin
 add_executable(bench_tin bench/bench_tin.cpp)
 target_link_libraries(bench_tin PRIVATE surface_core ingeneer_engine_flags)
+
+# Phase 6 exit: contour + volume baselines (same scheme; manual, hardened only):
+#   cmake --build --preset hardened --target bench_quantities
+#   build/hardened/libs/surface_core/bench_quantities
+add_executable(bench_quantities bench/bench_quantities.cpp)
+target_link_libraries(bench_quantities PRIVATE surface_quantities ingeneer_engine_flags)
