@@ -2,7 +2,8 @@
 # Built exclusively on geometry_core's exact predicates; oracle-validated against TOTaLi
 # (ADR-0023) and cross-checked against the vendored CDT library in tests.
 add_library(surface_core
-    src/tin.cpp)
+    src/tin.cpp
+    src/tin_breakline.cpp)
 
 target_include_directories(surface_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(surface_core PUBLIC geometry_core PRIVATE ingeneer_engine_flags)
@@ -17,6 +18,10 @@ add_test(NAME surface.tin_basic COMMAND test_tin_basic)
 add_executable(test_tin_audit tests/test_tin_audit.cpp)
 target_link_libraries(test_tin_audit PRIVATE surface_core third_party_cdt)
 add_test(NAME surface.tin_audit COMMAND test_tin_audit)
+
+add_executable(test_tin_breakline tests/test_tin_breakline.cpp)
+target_link_libraries(test_tin_breakline PRIVATE surface_core ingeneer_engine_flags)
+add_test(NAME surface.tin_breakline COMMAND test_tin_breakline)
 
 add_executable(test_tin_oracle tests/test_tin_oracle.cpp)
 target_link_libraries(test_tin_oracle PRIVATE surface_core ingeneer_engine_flags)
