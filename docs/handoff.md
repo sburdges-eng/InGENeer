@@ -351,6 +351,74 @@ dotnet, domain-isolation, contract-sync); Metal spike PASS re-run.
 **Phase 6 remaining after this session:** 6.5 libFuzzer TIN target, perf baselines;
 6.3 two-independent-TIN volume merge (deferred design note in volume.h).
 
+## Session Addendum — 2026-06-12 (Phase 6.5 + volume merge + ADR-0028 + incircle defect)
+
+Three parallel worktree subagents + an integrating-session deep-debug pass, on
+`feat/phase6.5-volumes-adr0028` (from `d409ee4`, PR #24 merge):
+
+**6.5 — TIN fuzzers, debug audit, perf baselines (DONE):** `libs/surface_core/fuzz/`
+(op-stream libFuzzer target + deterministic 200k standalone CTest + `-f` replay /
+`FUZZ_DUMP_LAST` / `FUZZ_TRACE` repro tooling), `kernel_assert.h`
+(`INGENEER_KERNEL_DEBUG_AUDIT` compiled into dev/asan/tsan lanes), `Tin::debug_audit()`
+after every mutating op, `bench/bench_tin.cpp` + `BENCHMARKS.md` (Apple M4, hardened,
+median-of-3: 149k pts/s @100k random; 544k pts/s collinear survey order; 128k pts/s
+317² lattice; 222.9 µs/breakline ×1000 into 100k TIN; 1M pts 68.2 s — O(√n) locate
+documented with BRIO/Hilbert as the known fix). **The insert-rejection wart is FIXED**
+(containment-first exhaustive seed; pre-mutation cavity validity + split/Lawson-flip
+fallback; coordinate domain gate `TinErrc::CoordinateOutOfDomain`, accepted iff v==0 or
+1e-30 ≤ |v| ≤ 1e12 — degree-4 predicate overflow at ~1e127 and expansion underflow at
+~1e-97 both corrupt topology under fuzz). Fuzzer proves accepted in-hull inserts NEVER
+fail; regression test 12 flipped to assert success; test 13 sweeps the on-original-line
+class.
+
+**CRITICAL predicate defect found by the new audit, FIXED:** `geometry_core`
+`incircle_2d`'s Layer-A filter computed its permanent from the CANCELLED 2×2 minors
+instead of Shewchuk's sum of absolute products — the bound could be ~12 orders of
+magnitude too small, certifying WRONG SIGNS without reaching the exact layers (and the
+same permanent poisoned the B/C thresholds). Confirmed against exact rational
+arithmetic; two repro vectors pinned (red-checked) in geometry_core test_predicates;
+recorded as **upstream defect #6** in `research/auracad/predicates-state.md`. Note: the
+Phase 5 10M soak could NOT have caught it (its invariants are sign-consistent under a
+wrong bound) — catching it required the TIN structural audit. Post-fix: 10M soak re-run
+zero failures.
+
+**Two engine bugs exposed by the now-trustworthy audit (flipped FATAL), FIXED:**
+(1) constraint RELOCATION (rounded crossing lands bit-exactly on an existing vertex)
+erased a constraint whose mesh edge survived un-legalized — exempt-while-constrained,
+violating once the flag dropped; new edge-keyed `legalize_edge` (Lawson with
+propagation) runs on that path (test 14, violation persisted to final mesh).
+(2) the forced 2→4 `split_constraint` was sound ONLY for a point exactly ON the
+constraint; at a rounded off-segment intersection the stranded edge's hidden violation
+could survive outside the rebuilt region — replaced with erase → legalize_edge → exact
+cavity insert → re-queued recovery; `split_constraint` deleted (test 15, transient,
+caught by the debug-audit lanes). Test-side audits strengthened to full both-direction
+strength.
+
+**6.3 deferred item — independent-two-TIN volumes (DONE):** `volume_between`
+generalized via exact-classification Sutherland–Hodgman overlay per triangle pair (bbox
+prefilter; degenerate point/segment contacts contribute exactly 0), reusing the
+existing exact positive-part prism integrator; shared-support fast path kept;
+`UnsharedSupport` removed; `VolumeResult.area` reports the integration region
+(hull∩hull). All-analytic tests incl. tiling audit; plane-sweep/DCEL overlay noted as
+future work.
+
+**ADR-0028 (owner-delegated ruling, DONE):** octree design ratified; **OQ-1 module
+home = `libs/pointcloud_core`** (plan §4.2's surface_core listing superseded on this
+point); ABI spec's proposed ADR renumbered to **0029**; adr/README index updated; spec
+OQ-1 marked resolved.
+
+**Verification (combined tree, re-run by integrating session):** 22/22 CTest ×
+dev/asan-ubsan/tsan/hardened = **88/88** (fatal CDT-optimality audits compiled into
+debug lanes); GEOM_FUZZ 10M soak ✓; libFuzzer (brew LLVM, ASan+UBSan, fatal audits)
+315,307 execs / 91 s zero crashes; both fuzz crash inputs replay clean; numeric gate ✓
+× 4 presets; clang-format ✓; verify_gate.sh ✓ (ruff, pytest, dotnet,
+domain-isolation, contract-sync).
+
+**Phase 6 remaining:** perf baselines for contours/volumes (engine baselines recorded);
+BRIO/Hilbert insertion-order optimization (documented, not scheduled); corpus-scale
+oracle cross-check for the overlay volume path (needs extract_from_totali.py
+extension).
+
 ## Next Actions
 
 1. **Owner review + commit** the staged work (specs, CMake, `libs/audit_core/`, interop spike,
