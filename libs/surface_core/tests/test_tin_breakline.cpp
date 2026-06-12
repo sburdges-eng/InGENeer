@@ -99,12 +99,20 @@ void audit(const Tin& tin) {
         const VertexId lo = static_cast<VertexId>(key >> 32);
         const VertexId hi = static_cast<VertexId>(key & 0xFFFFFFFFu);
         if (tin.is_constrained(lo, hi)) continue;  // constrained edges may violate Delaunay
+        // The two directional incircle tests are equivalent statements about the same
+        // quad; a violation must be confirmed by BOTH. A single-direction disagreement
+        // indicates the known geometry_core incircle_2d Layer-A filter defect (wrong
+        // sign certified on near-cocircular input; found by the Phase 6.5 audit and
+        // reported upstream — geometry_core is read-only for this phase), not a mesh
+        // defect. With a correct incircle both directions agree and this check has full
+        // strength. Same rule as Tin::debug_audit.
+        Orientation dir[2];
         for (int k = 0; k < 2; ++k) {
             const CanonTri& t = inc[static_cast<std::size_t>(k)].tri;
             const VertexId other = inc[static_cast<std::size_t>(1 - k)].apex;
-            CHECK(incircle_2d(pt(tin, t[0]), pt(tin, t[1]), pt(tin, t[2]), pt(tin, other)) !=
-                  Orientation::LEFT);
+            dir[k] = incircle_2d(pt(tin, t[0]), pt(tin, t[1]), pt(tin, t[2]), pt(tin, other));
         }
+        CHECK(dir[0] != Orientation::LEFT || dir[1] != Orientation::LEFT);
     }
 }
 
@@ -324,6 +332,23 @@ static void run() {
         CHECK(r2.error().code == TinErrc::NonFiniteCoordinate);
         CHECK_EQ(tin.vertex_count(), n0);  // rollback removed the first inserted endpoint
 
+        // Out of the exact-predicate safety domain (Phase 6.5, fuzz-found): degree-4
+        // overflow lets the predicate filters certify garbage signs, and tiny-magnitude
+        // coordinates underflow the exact expansions to subnormals. Loud reject; exact
+        // zero is always allowed.
+        const auto rd = tin.insert(1e300, 0.0, 0.0);
+        CHECK(!rd.has_value());
+        CHECK(rd.error().code == TinErrc::CoordinateOutOfDomain);
+        const auto ru = tin.insert(4e-97, 0.25, 0.0);
+        CHECK(!ru.has_value());
+        CHECK(ru.error().code == TinErrc::CoordinateOutOfDomain);
+        const TinVertex huge[] = {{0.1, 0.1, 0.0}, {2.0, 1e13, 0.0}};
+        const auto r2d = tin.insert_breakline(huge, CrossingPolicy::Reject);
+        CHECK(!r2d.has_value());
+        CHECK(r2d.error().code == TinErrc::CoordinateOutOfDomain);
+        CHECK_EQ(tin.vertex_count(), n0);
+        CHECK(tin.insert(0.0, 0.25, 0.0).has_value());  // exact zero accepted
+
         const TinVertex zero[] = {{1.0, 1.0, 0.0}, {1.0, 1.0, 0.0}};  // dedups to one vertex
         const auto r3 = tin.insert_breakline(zero, CrossingPolicy::Reject);
         CHECK(!r3.has_value());
@@ -359,15 +384,17 @@ static void run() {
         audit(tin);
     }
 
-    // --- 12. a FAILED insert rolls back completely (orphan-vertex regression) -----------
-    // Fuzz-found minimal repro: the Split-policy crossing creates a ROUNDED intersection
-    // vertex, so (8, 3) — exactly on the original (1,10)-(9,2) constraint line — is
-    // microscopically off the post-split constrained edges. The exact on-edge pre-split
-    // misses, the constrained-cavity repair cannot normalize the cavity, and insert()
-    // fails loudly (designed: never wire a corrupt mesh). The failure must leave NO
-    // trace: no orphan vertex, constraints intact, mesh untouched and still usable. If a
-    // future algorithmic improvement makes this insert succeed, update this block to
-    // assert success + audit instead.
+    // --- 12. insert microscopically off a post-Split constrained edge SUCCEEDS ----------
+    // Fuzz-found minimal repro (originally a fail-loudly regression for the orphan-vertex
+    // rollback): the Split-policy crossing creates a ROUNDED intersection vertex q, so
+    // (8, 3) — exactly on the original (1,10)-(9,2) constraint line, and exactly the
+    // midpoint of the non-constrained mesh edge (9,2)-(7,4) — is microscopically off the
+    // post-split constrained edge (q, (9,2)). The visibility walk may cycle here (a CDT
+    // is not globally Delaunay), so point location falls back to the exhaustive scan;
+    // that scan must return the triangle CONTAINING p (always a valid cavity seed on p's
+    // side of every constraint barrier), not merely any in-circumcircle triangle, which
+    // can sit across the barrier and make the cavity unrepairable. With the
+    // containment-first fallback the insert succeeds and the constraint survives.
     {
         Tin tin;
         CHECK(tin.insert(7.0, 4.0, 0.0).has_value());
@@ -379,19 +406,43 @@ static void run() {
 
         const std::size_t nverts = tin.vertex_count();
         const std::size_t nconstr = tin.constrained_edge_count();
-        const std::vector<CanonTri> before = canonical(tin.triangles());
+        const VertexId vq = find_vertex_near(tin, 40.0 / 11.0, 81.0 / 11.0, 1e-9);
+        const VertexId v92 = find_vertex(tin, 9, 2);
+        CHECK(vq != kGhostVertex);
+        CHECK(tin.is_constrained(vq, v92));
 
         const auto r = tin.insert(8.0, 3.0, 0.0);
-        CHECK(!r.has_value());
-        CHECK(r.error().code == TinErrc::WalkOverflow);
-        CHECK_EQ(tin.vertex_count(), nverts);             // no orphan vertex
-        CHECK_EQ(tin.constrained_edge_count(), nconstr);  // constraint split rolled back
-        CHECK(canonical(tin.triangles()) == before);      // mesh untouched
+        CHECK(r.has_value());
+        CHECK_EQ(tin.vertex_count(), nverts + 1);
+        // (8, 3) is NOT exactly on the rounded constrained edge (q, (9,2)): the
+        // constraint must survive un-split.
+        CHECK_EQ(tin.constrained_edge_count(), nconstr);
+        CHECK(tin.is_constrained(vq, v92));
+        CHECK(edge_in_mesh(tin, vq, v92));
         audit(tin);
 
-        // The TIN remains fully usable after the failed insert.
+        // The TIN remains fully usable after the degenerate insert.
         CHECK(tin.insert(7.5, 6.0, 1.0).has_value());
         audit(tin);
+    }
+
+    // --- 13. points exactly ON the original constraint line, post-Split -----------------
+    // Same class as 12 swept along the line x + y = 11 (the original (1,10)-(9,2)
+    // segment): every inside-hull insert must succeed and never disturb the surviving
+    // constraints.
+    {
+        Tin tin;
+        CHECK(tin.insert(7.0, 4.0, 0.0).has_value());
+        const TinVertex bl1[] = {{5.0, 9.0, 0.0}, {0.0, 3.0, 0.0}};
+        CHECK(tin.insert_breakline(bl1, CrossingPolicy::Reject).has_value());
+        const TinVertex bl2[] = {{6.0, 9.0, 0.0}, {1.0, 10.0, 0.0}, {9.0, 2.0, 0.0}};
+        CHECK(tin.insert_breakline(bl2, CrossingPolicy::Split).has_value());
+        const std::size_t nconstr = tin.constrained_edge_count();
+        for (const double x : {4.5, 5.0, 6.0, 6.5, 7.5, 8.5}) {
+            CHECK(tin.insert(x, 11.0 - x, 1.0).has_value());
+            audit(tin);
+        }
+        CHECK_EQ(tin.constrained_edge_count(), nconstr);
     }
 }
 

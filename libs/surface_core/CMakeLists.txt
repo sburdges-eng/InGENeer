@@ -8,6 +8,11 @@ add_library(surface_core
 target_include_directories(surface_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(surface_core PUBLIC geometry_core PRIVATE ingeneer_engine_flags)
 
+# KERNEL_DEBUG_ASSERT tier (plan §3.4, Phase 6.5): the full constrained-Delaunay audit
+# runs automatically after every mutating Tin operation in Debug configurations — i.e.
+# the dev, asan-ubsan and tsan presets — and is compiled out of hardened/release.
+target_compile_definitions(surface_core PRIVATE $<$<CONFIG:Debug>:INGENEER_KERNEL_DEBUG_AUDIT=1>)
+
 # --- tests (CTest; dependency-free harness) -------------------------------------------
 add_executable(test_tin_basic tests/test_tin_basic.cpp)
 target_link_libraries(test_tin_basic PRIVATE surface_core ingeneer_engine_flags)

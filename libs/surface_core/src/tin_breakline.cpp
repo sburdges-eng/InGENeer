@@ -100,8 +100,9 @@ void Tin::anglada_fill(VertexId u, VertexId w, std::span<const VertexId> chain,
 // Replace `region` (the triangles crossed by segment a -> b; all finite) with the Anglada
 // retriangulation of the left/right boundary chains. Neighbor wiring is generic
 // undirected-edge pairing: internal edges pair between two fresh triangles, boundary
-// edges reconnect to the recorded outside neighbors (which may be ghosts).
-void Tin::retriangulate_region(const std::vector<TriId>& region, VertexId a, VertexId b,
+// edges reconnect to the recorded outside neighbors (which may be ghosts). All validation
+// happens BEFORE the first mutation (see the contract in tin.h).
+bool Tin::retriangulate_region(const std::vector<TriId>& region, VertexId a, VertexId b,
                                const std::vector<VertexId>& left,
                                const std::vector<VertexId>& right) {
     std::vector<bool> in_region(tris_.size(), false);
@@ -116,13 +117,43 @@ void Tin::retriangulate_region(const std::vector<TriId>& region, VertexId a, Ver
                             m);
         }
     }
-    for (const TriId t : region) release_tri(t);
-
     std::vector<std::array<VertexId, 3>> polys;
     polys.reserve(left.size() + right.size());
     anglada_fill(a, b, left, polys);
     const std::vector<VertexId> rrev(right.rbegin(), right.rend());
     anglada_fill(b, a, rrev, polys);
+
+    // ---- pre-mutation validation (Phase 6.5, fuzz-found) -------------------------------
+    // With a correct incircle, Anglada consumes every chain vertex and the new triangles
+    // tile the region exactly (theorem). geometry_core's incircle_2d Layer-A filter
+    // defect (see debug_audit) can select a WRONG Delaunay mate, leaving a degenerate
+    // sub-polygon with no CCW mate — a hole — which would wire a corrupt mesh. Verify
+    // closure exactly before mutating: full triangle count; every new edge paired with
+    // exactly one other new edge or exactly one region-boundary edge; every
+    // region-boundary edge consumed exactly once.
+    if (polys.size() != left.size() + right.size()) return false;
+    {
+        std::unordered_map<std::uint64_t, int> occ;
+        occ.reserve(3 * polys.size());
+        for (const auto& t3 : polys) {
+            for (int i = 0; i < 3; ++i) {
+                ++occ[edge_key(t3[static_cast<std::size_t>(i)],
+                               t3[static_cast<std::size_t>((i + 1) % 3)])];
+            }
+        }
+        std::size_t boundary_used = 0;
+        for (const auto& [key, count] : occ) {
+            if (outside.contains(key)) {
+                if (count != 1) return false;
+                ++boundary_used;
+            } else if (count != 2) {
+                return false;
+            }
+        }
+        if (boundary_used != outside.size()) return false;
+    }
+
+    for (const TriId t : region) release_tri(t);
 
     std::vector<TriId> ids(polys.size(), kNoTriangle);
     for (std::size_t k = 0; k < polys.size(); ++k) {
@@ -158,6 +189,7 @@ void Tin::retriangulate_region(const std::vector<TriId>& region, VertexId a, Ver
         }
     }
     if (!ids.empty()) last_tri_ = ids.front();
+    return true;
 }
 
 // Recover segment a0 -> b0 as constrained edge(s). Worklist of sub-segments: splits at
@@ -281,25 +313,42 @@ std::expected<void, TinError> Tin::recover_edges(VertexId a0, VertexId b0, Cross
             const double qx = pa.x + tt * rx;
             const double qy = pa.y + tt * ry;
             const double qz = pa.z + tt * (pb.z - pa.z);
-            const auto vq = insert(qx, qy, qz);
+            // Exact-duplicate pre-scan: the rounded intersection can land bit-exactly on
+            // an existing vertex (the engine never stores two vertices with equal xy).
+            VertexId dup = kGhostVertex;
+            for (VertexId v = 0; v < vertices_.size() && dup == kGhostVertex; ++v) {
+                if (vertices_[v].x == qx && vertices_[v].y == qy) dup = v;
+            }
+            if (dup != kGhostVertex) {
+                if (dup == a || dup == b) {
+                    // Intersection collapsed onto a working-segment endpoint:
+                    // numerically unsplittable. Loud fallback (see CrossingPolicy).
+                    failed = true;
+                    fail_code = TinErrc::ConstraintIntersection;
+                    return;
+                }
+                if (dup != c && dup != d) {
+                    // Relocate the crossed constraint through the existing vertex.
+                    constrained_.erase(edge_key(c, d));
+                    work.push_back({c, dup});
+                    work.push_back({dup, d});
+                }
+                work.push_back({a, dup});
+                work.push_back({dup, b});
+                requeued = true;
+                return;
+            }
+
+            // Split the constraint at the (semantically on-edge) intersection point via
+            // the dedicated segment-split primitive: 2->4 split of both adjacent
+            // triangles, halves constrained immediately, Lawson flips on both sides.
+            // (Inserting q through the regular cavity machinery is incorrect in either
+            // barrier state — see Tin::split_constraint.)
+            const auto vq = split_constraint(c, d, qx, qy, qz);
             if (!vq) {
                 failed = true;
                 fail_code = vq.error().code;
                 return;
-            }
-            if (*vq == a || *vq == b) {
-                // Intersection collapsed onto an endpoint: numerically unsplittable.
-                // Loud, documented fallback (see CrossingPolicy).
-                failed = true;
-                fail_code = TinErrc::ConstraintIntersection;
-                return;
-            }
-            if (*vq != c && *vq != d && constrained_.contains(edge_key(c, d))) {
-                // If q fell EXACTLY on (c, d), insert() already split that constraint;
-                // otherwise relocate it through the new shared vertex.
-                constrained_.erase(edge_key(c, d));
-                work.push_back({c, *vq});
-                work.push_back({*vq, d});
             }
             work.push_back({a, *vq});
             work.push_back({*vq, b});
@@ -364,7 +413,12 @@ std::expected<void, TinError> Tin::recover_edges(VertexId a0, VertexId b0, Cross
         if (requeued) continue;  // march aborted before mutation; sub-segments queued
         if (!finished) return std::unexpected(TinError{TinErrc::WalkOverflow});
 
-        retriangulate_region(region, a, bcur, lchain, rchain);
+        if (!retriangulate_region(region, a, bcur, lchain, rchain)) {
+            // Anglada closure validation failed (predicate-defect path; see the
+            // contract in tin.h): nothing was mutated — fail the breakline loudly and
+            // let insert_breakline's snapshot rollback restore the pre-call state.
+            return std::unexpected(TinError{TinErrc::WalkOverflow});
+        }
         constrained_.insert(edge_key(a, bcur));
     }
     return {};
@@ -395,6 +449,9 @@ std::expected<BreaklineId, TinError> Tin::insert_breakline(std::span<const TinVe
     Tin snapshot{*this};
     auto out = breakline_impl(polyline, policy);
     if (!out) *this = std::move(snapshot);  // roll back to the exact pre-call state
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+    debug_audit();
+#endif
     return out;
 }
 
