@@ -14,6 +14,9 @@
 //                                       x 7693 stations (collinear rows AND columns)
 //   breaklines                        — 1000 two-point Split-policy breaklines into a
 //                                       100k random TIN (per-breakline cost)
+//   bulk10k / bulk100k / bulk1m       — the same uniform-random clouds via insert_many
+//                                       (T11 BRIO/Hilbert bulk path)
+//   bulklattice / bulkroadway         — the lattice / roadway clouds via insert_many
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -46,37 +49,33 @@ void report(const char* name, std::size_t n, double secs, const Tin& tin) {
                 static_cast<double>(n) / secs, tin.triangle_count(), tin.hull_size());
 }
 
-void bench_random(const char* name, std::size_t n) {
+// Shared cloud generators: the bulk-path workloads (T11) must time the EXACT same point
+// streams as the sequential baselines, so generation is factored out of the timed loops.
+std::vector<TinVertex> make_random(std::size_t n) {
     Lcg rng;
     std::vector<TinVertex> pts(n);
     for (auto& p : pts) p = {rng.coord(10000.0), rng.coord(10000.0), rng.coord(100.0)};
-    Tin tin;
-    const auto t0 = Clock::now();
-    for (const auto& p : pts) (void)tin.insert(p.x, p.y, p.z);
-    report(name, n, seconds_since(t0), tin);
+    return pts;
 }
 
-void bench_lattice() {
+std::vector<TinVertex> make_lattice() {
     constexpr int kSide = 317;  // 317^2 = 100489 points
     Lcg rng;
-    std::vector<std::pair<int, int>> pts;
+    std::vector<TinVertex> pts;
     pts.reserve(static_cast<std::size_t>(kSide) * kSide);
     for (int x = 0; x < kSide; ++x) {
-        for (int y = 0; y < kSide; ++y) pts.emplace_back(x, y);
+        for (int y = 0; y < kSide; ++y) {
+            pts.push_back(
+                {static_cast<double>(x), static_cast<double>(y), static_cast<double>(x + y)});
+        }
     }
     for (std::size_t i = pts.size(); i > 1; --i) {  // deterministic Fisher-Yates
         std::swap(pts[i - 1], pts[rng.next() % i]);
     }
-    Tin tin;
-    const auto t0 = Clock::now();
-    for (const auto& [x, y] : pts) {
-        (void)tin.insert(static_cast<double>(x), static_cast<double>(y),
-                         static_cast<double>(x + y));
-    }
-    report("lattice100k", pts.size(), seconds_since(t0), tin);
+    return pts;
 }
 
-void bench_roadway() {
+std::vector<TinVertex> make_roadway() {
     // Survey-style collinear-heavy pattern: stations every 1.3 m along a straight
     // alignment, 13 lane offsets per station -> collinear rows and columns everywhere.
     constexpr int kStations = 7693;
@@ -90,10 +89,24 @@ void bench_roadway() {
             pts.push_back({x, y, 0.01 * x + 0.1 * y});
         }
     }
+    return pts;
+}
+
+void bench_sequential(const char* name, const std::vector<TinVertex>& pts) {
     Tin tin;
     const auto t0 = Clock::now();
     for (const auto& p : pts) (void)tin.insert(p.x, p.y, p.z);
-    report("roadway100k", pts.size(), seconds_since(t0), tin);
+    report(name, pts.size(), seconds_since(t0), tin);
+}
+
+// T11 bulk path: insert_many (BRIO rounds + Hilbert order, then the same insert()
+// machinery). The timed region includes the ordering work — that cost is part of the
+// bulk path's contract.
+void bench_bulk(const char* name, const std::vector<TinVertex>& pts) {
+    Tin tin;
+    const auto t0 = Clock::now();
+    if (!tin.insert_many(pts)) std::printf("%-12s  insert_many FAILED\n", name);
+    report(name, pts.size(), seconds_since(t0), tin);
 }
 
 void bench_breaklines() {
@@ -129,11 +142,17 @@ void bench_breaklines() {
 
 int main(int argc, char** argv) {
     const std::string which = argc > 1 ? argv[1] : "all";
-    if (which == "all" || which == "random10k") bench_random("random10k", 10000);
-    if (which == "all" || which == "random100k") bench_random("random100k", 100000);
-    if (which == "all" || which == "random1m") bench_random("random1m", 1000000);
-    if (which == "all" || which == "lattice100k") bench_lattice();
-    if (which == "all" || which == "roadway100k") bench_roadway();
+    if (which == "all" || which == "random10k") bench_sequential("random10k", make_random(10000));
+    if (which == "all" || which == "random100k")
+        bench_sequential("random100k", make_random(100000));
+    if (which == "all" || which == "random1m") bench_sequential("random1m", make_random(1000000));
+    if (which == "all" || which == "lattice100k") bench_sequential("lattice100k", make_lattice());
+    if (which == "all" || which == "roadway100k") bench_sequential("roadway100k", make_roadway());
     if (which == "all" || which == "breaklines") bench_breaklines();
+    if (which == "all" || which == "bulk10k") bench_bulk("bulk10k", make_random(10000));
+    if (which == "all" || which == "bulk100k") bench_bulk("bulk100k", make_random(100000));
+    if (which == "all" || which == "bulk1m") bench_bulk("bulk1m", make_random(1000000));
+    if (which == "all" || which == "bulklattice") bench_bulk("bulklattice", make_lattice());
+    if (which == "all" || which == "bulkroadway") bench_bulk("bulkroadway", make_roadway());
     return 0;
 }

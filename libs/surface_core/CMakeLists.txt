@@ -3,7 +3,8 @@
 # (ADR-0023) and cross-checked against the vendored CDT library in tests.
 add_library(surface_core
     src/tin.cpp
-    src/tin_breakline.cpp)
+    src/tin_breakline.cpp
+    src/tin_bulk.cpp)
 
 target_include_directories(surface_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(surface_core PUBLIC geometry_core PRIVATE ingeneer_engine_flags)
@@ -27,6 +28,10 @@ add_test(NAME surface.tin_audit COMMAND test_tin_audit)
 add_executable(test_tin_breakline tests/test_tin_breakline.cpp)
 target_link_libraries(test_tin_breakline PRIVATE surface_core ingeneer_engine_flags)
 add_test(NAME surface.tin_breakline COMMAND test_tin_breakline)
+
+add_executable(test_tin_bulk tests/test_tin_bulk.cpp)
+target_link_libraries(test_tin_bulk PRIVATE surface_core ingeneer_engine_flags)
+add_test(NAME surface.tin_bulk COMMAND test_tin_bulk)
 
 add_executable(test_tin_oracle tests/test_tin_oracle.cpp)
 target_link_libraries(test_tin_oracle PRIVATE surface_core ingeneer_engine_flags)

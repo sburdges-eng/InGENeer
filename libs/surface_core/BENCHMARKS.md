@@ -37,6 +37,32 @@ the shorter workloads); the medians below are conservative.
 | `lattice100k` — shuffled 317×317 integer lattice (cocircular-tie stress) | 100 489 | 0.788 s | 128 k pts/s | 199 712 tris, hull 1 264 |
 | `roadway100k` — 13 lane offsets × 7 693 stations (collinear-heavy, survey insertion order) | 100 009 | 0.184 s | 544 k pts/s | 184 608 tris, hull 15 408 |
 
+### Bulk insertion — T11 BRIO/Hilbert `insert_many` (recorded 2026-06-12)
+
+`Tin::insert_many` reorders the batch (BRIO rounds, Hilbert order within each round —
+deterministic, no RNG) and feeds the UNCHANGED single-point `insert()` machinery, turning
+the remembering walk's O(√n)-per-insert locate cost into O(1) expected. This implements
+the "BRIO/Hilbert insertion order" future-work note below; insertion semantics are
+untouched. Methodology: same environment and fixed-seed LCG clouds as above, `hardened`
+preset, median of 3 runs on an otherwise idle machine; timed region includes the
+ordering/sort work. Result meshes (tris/hull) are identical to the sequential rows.
+
+| Workload | Points | Median total | Median rate | Sequential median | Speedup |
+|---|---:|---:|---:|---:|---:|
+| `bulk10k` — uniform random | 10 000 | 0.016 s | 620 k pts/s | 0.031 s | 1.9× |
+| `bulk100k` — uniform random | 100 000 | 0.154 s | 650 k pts/s | 0.670 s | 4.4× |
+| `bulk1m` — uniform random | 1 000 000 | 1.580 s | 633 k pts/s | 68.2 s recorded / 57.1 s re-measured¹ | **43× / 36×** |
+| `bulklattice` — shuffled lattice | 100 489 | 0.176 s | 570 k pts/s | 0.788 s | 4.5× |
+| `bulkroadway` — survey order | 100 009 | 0.193 s | 517 k pts/s | 0.184 s | 0.95×² |
+
+¹ The recorded 68.2 s baseline overlapped a background sanitizer CTest (see Reproduce
+  note above); `random1m` re-measured at this commit on an idle machine is 57.102 s.
+  The honest same-session speedup is 36×; the bulk rate is now essentially flat in n
+  (620–650 k pts/s from 10 k → 1 M), i.e. the super-linear behavior is gone.
+² Survey-ordered input already walks O(1) sequentially; the bulk path's sort/round
+  shuffle buys nothing there and costs ~5 %. Use plain `insert()` loops for data that
+  is already spatially ordered; use `insert_many` for everything else.
+
 ## Breaklines
 
 | Workload | Median |
