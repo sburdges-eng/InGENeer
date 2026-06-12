@@ -31,5 +31,25 @@ for f in "${files[@]}"; do
     else
         echo "ok: $f"
     fi
+
+    # H-22 second half: the DEFAULT contraction (-ffp-contract=on, Apple clang) is as
+    # fatal to exact predicates as =fast — observed breaking the Layer-A filters and
+    # two_product error terms (2026-06-11). Every geometry predicates TU must be
+    # compiled with an explicit -ffp-contract=off.
+    if grep -q 'geometry_core/src/predicates.cpp' "$f" 2>/dev/null; then
+        if python3 -c "
+import json, sys
+cc = json.load(open('$f'))
+bad = [e['file'] for e in cc
+       if 'geometry_core/src/predicates.cpp' in e.get('file', '')
+       and '-ffp-contract=off' not in e.get('command', ' '.join(e.get('arguments', [])))]
+sys.exit(1 if bad else 0)
+"; then
+            echo "ok: $f (predicates TU has -ffp-contract=off)"
+        else
+            echo "FAIL: geometry_core/src/predicates.cpp compiled WITHOUT -ffp-contract=off in $f (H-22)" >&2
+            status=1
+        fi
+    fi
 done
 exit $status

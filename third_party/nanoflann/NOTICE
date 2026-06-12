@@ -1,0 +1,10 @@
+nanoflann — header-only KD-tree library
+Copyright 2008-2009 Marius Muja, 2011-present Jose Luis Blanco-Claraco and contributors
+Licensed under the BSD license (LICENSE in this directory).
+
+Vendoring policy (InGENeer):
+- Clean mirror of include/nanoflann.hpp at the commit recorded in UPSTREAM_COMMIT.
+  Upstream examples, tests, and build scaffolding are omitted.
+- NO local modifications. Do not fork; do not patch in place. Wrap behavior in
+  libs/geometry_core / libs/pointcloud_core. To update, re-vendor a newer upstream
+  commit and update UPSTREAM_COMMIT.
