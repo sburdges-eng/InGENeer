@@ -69,18 +69,15 @@ ordering/sort work. Result meshes (tris/hull) are identical to the sequential ro
 |---|---:|
 | 1 000 two-point Split-policy breaklines into a 100 k random TIN | **222.9 µs / breakline** (all 1 000 ok; 1 028 constrained edges) |
 
-## Contours / volumes
-
-Out of scope for this baseline: `contour.cpp` / `volume.cpp` are owned by a parallel
-Phase 6.3 work stream this session. Add their baselines when that stream lands.
-
 ## Notes (honest characterization)
 
-* **Random insertion is super-linear** (149 k → 14.7 k pts/s from 100 k → 1 M): point
-  location is a remembering walk from the previous insert, which is O(√n) expected per
-  RANDOM query without spatial pre-sorting. Survey-ordered input (`roadway100k`) walks
-  O(1) and runs 3.7× faster than random at the same size. Known future optimization:
-  BRIO/Hilbert insertion order or a jump-and-walk seed — out of Phase 6.5 scope.
+* **Sequential random insertion is super-linear** (149 k → 14.7 k pts/s from 100 k →
+  1 M): point location is a remembering walk from the previous insert, which is O(√n)
+  expected per RANDOM query without spatial pre-sorting. Survey-ordered input
+  (`roadway100k`) walks O(1) and runs 3.7× faster than random at the same size.
+  **Resolved for batch workloads by `insert_many`** (BRIO/Hilbert bulk insertion — see
+  the bulk rows above: flat ~620–650 k pts/s from 10 k → 1 M); a jump-and-walk seed
+  for scattered SINGLE inserts remains future work.
 * During this phase an accidental quadratic was removed from `cavity_insert` (a per-call
   `std::vector<bool>(tris_.size())` re-initialization → epoch-stamped scratch array);
   the 1 M baseline above is post-fix.
