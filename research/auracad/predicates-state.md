@@ -67,3 +67,30 @@ discipline these are flagged here for auracad, NOT fixed upstream:
 Verification after fixes: 10,000,000-iteration deterministic fuzz (uniform + near-degenerate
 + exact-degenerate + 1-ulp perturbed; antisymmetry/cyclic/duplicate/membership invariants):
 **zero failures**.
+
+## Phase 6.5 finding (2026-06-12) — sixth upstream defect
+
+6. **incircle_2d Layer-A permanent computed from cancelled minors** (auracad main, same
+   wrapper lineage as #3): the filter's `permanent` was
+   `alift*|bc| + blift*|ca| + clift*|ab|` — absolute values of the already-CANCELLED 2x2
+   minors — instead of Shewchuk's sum of absolute products
+   `(|bdx·cdy|+|bdy·cdx|)·alift + (|cdx·ady|+|cdy·adx|)·blift + (|adx·bdy|+|ady·bdx|)·clift`.
+   The rounding error of each minor scales with the PRODUCT magnitudes, not the cancelled
+   difference, so the bound can be arbitrarily (observed: ~12 orders of magnitude) too
+   small and Layer A certifies WRONG float signs without ever reaching the exact layers;
+   the same too-small permanent also feeds incircle_adapt's B/C thresholds. Found by the
+   InGENeer Phase 6.5 TIN debug audit under coverage-guided fuzzing; confirmed against
+   exact rational arithmetic. Two pinned repro vectors (see
+   `libs/geometry_core/tests/test_predicates.cpp`,
+   `test_incircle_filter_permanent_regression`):
+   - near-cocircular `a=(4.5,6.5) b=(3.6363636363636362,7.3636363636363633) c=(5,6)
+     d=(7,4)`: exact det −2.22e-15 (outside); defective filter certified inside.
+   - large-coordinate `a=(7,4) b=(6,7) c=(4,6) d=(−38547229639.746628,
+     445103252.0400967)`: exact det −1.04e+22; float det +3.0e+24 — wrong in sign AND
+     magnitude — certified by a bound of 3.8e+17 (correct bound: 1.7e+26).
+   InGENeer fix (2026-06-12): permanent computed from un-cancelled absolute products.
+   Note the Phase 5 10M-iteration soak did NOT catch this: its invariants
+   (antisymmetry/cyclic/duplicate/membership) are sign-consistent under a wrong filter
+   bound; catching it requires an exact-arithmetic cross-check or a downstream
+   structural consumer (the TIN audit). auracad should fix the same expression and add
+   the two vectors.

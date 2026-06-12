@@ -451,6 +451,38 @@ void test_incircle_nan_returns_indeterminate() {
     CHECK(incircle_2d(a, b, c, d) != Orientation::INDETERMINATE);
 }
 
+void test_incircle_filter_permanent_regression() {
+    // Phase 6.5 fuzz-found defect: the Layer-A permanent was computed from the
+    // CANCELLED 2x2 minors (|bdx*cdy - bdy*cdx| etc.) instead of Shewchuk's sum of
+    // absolute products (|bdx*cdy| + |bdy*cdx| etc.). On near-cocircular or
+    // large-coordinate input the cancelled minor is tiny while the rounding error
+    // scales with the PRODUCTS, so the bound could be ~12 orders of magnitude too
+    // small and the filter certified wrong float signs without ever reaching the
+    // exact layers (the same wrong permanent also fed incircle_adapt's B/C
+    // thresholds). Both vectors verified against exact rational arithmetic
+    // (python3 fractions; det < 0 means d strictly OUTSIDE the CCW circumcircle).
+
+    // Near-cocircular: exact det = -2.2204e-15 (outside). The defective filter
+    // certified LEFT (inside) from a float det of +3.1e-15.
+    const Point2 n0{4.5, 6.5};
+    const Point2 n1{3.6363636363636362, 7.3636363636363633};
+    const Point2 n2{5.0, 6.0};
+    const Point2 nd{7.0, 4.0};
+    CHECK(incircle_2d(n0, n1, n2, nd) == Orientation::RIGHT);
+    // Antisymmetry must hold on the same vector (swap two triangle vertices).
+    CHECK(incircle_2d(n1, n0, n2, nd) == Orientation::LEFT);
+
+    // Large-coordinate: d is ~4e10 away from a radius-~2 circumcircle; exact det
+    // = -1.0403e+22 (outside, by 22 orders of magnitude). The defective filter
+    // certified LEFT from a float det of +3.0e24 — wrong in sign AND magnitude.
+    const Point2 g0{7.0, 4.0};
+    const Point2 g1{6.0, 7.0};
+    const Point2 g2{4.0, 6.0};
+    const Point2 gd{-38547229639.746628, 445103252.0400967};
+    CHECK(incircle_2d(g0, g1, g2, gd) == Orientation::RIGHT);
+    CHECK(incircle_2d(g1, g0, g2, gd) == Orientation::LEFT);
+}
+
 void run() {
     test_orient2d_basic();
     test_orient2d_known_signs();
@@ -474,6 +506,7 @@ void run() {
     test_incircle_ulp_perturbations();
     test_incircle_symmetry_properties();
     test_incircle_nan_returns_indeterminate();
+    test_incircle_filter_permanent_regression();
 }
 
 }  // namespace

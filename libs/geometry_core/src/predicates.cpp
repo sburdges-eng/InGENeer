@@ -1238,12 +1238,21 @@ Orientation incircle_2d(const Point2& a, const Point2& b, const Point2& c,
 
     // ---- Layer A (filter): Shewchuk's static error bound iccerrboundA ---
     //
-    // Permanent (sum of absolute product magnitudes):
-    //   permanent = ad_sq*|minor_a| + bd_sq*|minor_b| + cd_sq*|minor_c|
-    const double abs_minor_a = std::fabs(minor_a);
-    const double abs_minor_b = std::fabs(minor_b);
-    const double abs_minor_c = std::fabs(minor_c);
-    const double permanent = ad_sq * abs_minor_a + bd_sq * abs_minor_b + cd_sq * abs_minor_c;
+    // Permanent (sum of absolute product magnitudes), per Shewchuk's incircle():
+    //   permanent = (|bdx*cdy| + |bdy*cdx|)*alift
+    //             + (|cdx*ady| + |cdy*adx|)*blift
+    //             + (|adx*bdy| + |ady*bdx|)*clift
+    // The products must be taken BEFORE the cancelling subtraction: the rounding
+    // error of each minor scales with the product magnitudes, not with the
+    // (possibly fully cancelled) difference. Using |minor| here made the bound
+    // arbitrarily too small on near-cocircular and large-coordinate input, so the
+    // filter certified wrong float signs without reaching the exact layers — and
+    // the same too-small permanent poisoned incircle_adapt's B/C thresholds
+    // (Phase 6.5 fuzz finding; regression vectors in test_predicates.cpp). The
+    // lifts ad_sq/bd_sq/cd_sq are sums of squares, hence already nonnegative.
+    const double permanent = (std::fabs(bdx * cdy) + std::fabs(bdy * cdx)) * ad_sq +
+                             (std::fabs(cdx * ady) + std::fabs(cdy * adx)) * bd_sq +
+                             (std::fabs(adx * bdy) + std::fabs(ady * bdx)) * cd_sq;
     const double err_bound_a = kIccErrBoundA * permanent;
 
     if (std::fabs(det) > err_bound_a) {
