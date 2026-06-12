@@ -10,12 +10,21 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
 #include <vector>
 
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size);
 
 int main(int argc, char** argv) {
     int iterations = 200000;
+    if (argc > 2 && std::string_view(argv[1]) == "-f") {  // single file input mode
+        std::FILE* f = std::fopen(argv[2], "rb");
+        if (!f) return 2;
+        std::vector<std::uint8_t> in(4096);
+        const std::size_t n = std::fread(in.data(), 1, in.size(), f);
+        std::fclose(f);
+        return LLVMFuzzerTestOneInput(in.data(), n);
+    }
     if (argc > 1) iterations = std::atoi(argv[1]);
 
     std::uint64_t state = 0x9e3779b97f4a7c15ull;  // fixed seed
@@ -30,6 +39,14 @@ int main(int argc, char** argv) {
         buf.resize(len);
         for (std::size_t j = 0; j < len; ++j) {
             buf[j] = static_cast<std::uint8_t>(next() & 0xffu);
+        }
+        if (const char* dump = std::getenv("FUZZ_DUMP_LAST")) {
+            std::FILE* f = std::fopen(dump, "wb");
+            if (f) {
+                std::fwrite(buf.data(), 1, buf.size(), f);
+                std::fclose(f);
+            }
+            std::fprintf(stderr, "iter %d len %zu\n", i, buf.size());
         }
         if (LLVMFuzzerTestOneInput(buf.data(), buf.size()) != 0) return 1;
     }

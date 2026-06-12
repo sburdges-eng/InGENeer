@@ -224,15 +224,14 @@ private:
     // Lawson flips restoring the constrained-Delaunay property around freshly inserted
     // p (constrained and hull edges never flipped; terminates in < vertex_count flips).
     void lawson_restore(VertexId p, std::vector<TriId> suspects) noexcept;
-    // Split the CONSTRAINED edge (c, d) at the crossing point (x, y, z) — the classical
-    // segment-split primitive (H-6 Split policy). The point is SEMANTICALLY on (c, d)
-    // even when its rounded coordinates are a hair off it: both adjacent triangles are
-    // 2->4 split, the halves (c, p) / (p, d) are constrained immediately, and Lawson
-    // flips restore the CDT on both sides. Fails (before any mutation) with
-    // ConstraintIntersection if the rounded point is not strictly inside the adjacent
-    // quad (numerically unsplittable; loud per the audited policy).
-    std::expected<VertexId, TinError> split_constraint(VertexId c, VertexId d, double x, double y,
-                                                       double z) noexcept;
+    // Edge-keyed Lawson legalization: re-establish the local Delaunay property starting
+    // from the (possibly just UN-constrained) edge (c, d), propagating flips outward.
+    // Required after constraint RELOCATION (recover_edges' rounded-intersection-hits-
+    // existing-vertex path): erasing a constraint leaves its mesh edge subject to the
+    // Delaunay criterion again, and it may violate it — every subsequent recovery step
+    // assumes the mesh is the CDT of the current constraint set (fuzz-found, see
+    // test 14 in test_tin_breakline.cpp). No-op if (c, d) is not a mesh edge.
+    void legalize_edge(VertexId c, VertexId d) noexcept;
     void replace_neighbor(TriId t, TriId from, TriId to) noexcept;
 
     // --- breakline machinery (Phase 6.2; src/tin_breakline.cpp) -------------------------

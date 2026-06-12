@@ -99,20 +99,16 @@ void audit(const Tin& tin) {
         const VertexId lo = static_cast<VertexId>(key >> 32);
         const VertexId hi = static_cast<VertexId>(key & 0xFFFFFFFFu);
         if (tin.is_constrained(lo, hi)) continue;  // constrained edges may violate Delaunay
-        // The two directional incircle tests are equivalent statements about the same
-        // quad; a violation must be confirmed by BOTH. A single-direction disagreement
-        // indicates the known geometry_core incircle_2d Layer-A filter defect (wrong
-        // sign certified on near-cocircular input; found by the Phase 6.5 audit and
-        // reported upstream — geometry_core is read-only for this phase), not a mesh
-        // defect. With a correct incircle both directions agree and this check has full
-        // strength. Same rule as Tin::debug_audit.
-        Orientation dir[2];
+        // Full strength since the geometry_core incircle_2d Layer-A permanent fix:
+        // the two directional incircle tests are equivalent statements about the same
+        // quad, so EACH must independently report non-violation. Same rule as
+        // Tin::debug_audit.
         for (int k = 0; k < 2; ++k) {
             const CanonTri& t = inc[static_cast<std::size_t>(k)].tri;
             const VertexId other = inc[static_cast<std::size_t>(1 - k)].apex;
-            dir[k] = incircle_2d(pt(tin, t[0]), pt(tin, t[1]), pt(tin, t[2]), pt(tin, other));
+            CHECK(incircle_2d(pt(tin, t[0]), pt(tin, t[1]), pt(tin, t[2]), pt(tin, other)) !=
+                  Orientation::LEFT);
         }
-        CHECK(dir[0] != Orientation::LEFT || dir[1] != Orientation::LEFT);
     }
 }
 
@@ -443,6 +439,77 @@ static void run() {
             audit(tin);
         }
         CHECK_EQ(tin.constrained_edge_count(), nconstr);
+    }
+
+    // --- 14. constraint relocation must re-legalize the un-constrained edge -------------
+    // Fuzz-found (minimized): the third breakline's recovery crosses an earlier
+    // constraint at a point whose rounded intersection lands BIT-EXACTLY on an existing
+    // vertex, taking recover_edges' relocation path: the crossed constraint is erased
+    // and re-routed through that vertex. The erased edge stays in the mesh, loses its
+    // Delaunay exemption, and (before the fix) was never re-legalized — every later
+    // recovery step then operated on a non-CDT mesh, wiring a sliver between two
+    // vertices 5e-16 apart whose huge circumcircle swallowed a visible vertex. The
+    // audit() after each op asserts full local constrained-Delaunay optimality.
+    {
+        Tin tin;
+        const TinVertex bl1[] = {{6.0, 3.0, 57.0}, {8.0, 5.25, 7.0}, {3.0, 1.0, 195.0}};
+        CHECK(tin.insert_breakline(bl1, CrossingPolicy::Split).has_value());
+        audit(tin);
+        const TinVertex bl2[] = {{6.0, 3.2054687499999996, 99.0},
+                                 {6.0, 4.7367187499999996, 167.0},
+                                 {4.3125, 2.1156250000000001, 7.0},
+                                 {4.5, 7.0, 180.0}};
+        CHECK(tin.insert_breakline(bl2, CrossingPolicy::Split).has_value());
+        audit(tin);
+        const TinVertex bl3[] = {{6.0, 4.8551513671874993, 17.0},
+                                 {4.3125, 2.1156249999999996, 144.0}};
+        CHECK(tin.insert_breakline(bl3, CrossingPolicy::Split).has_value());
+        audit(tin);
+    }
+
+    // --- 15. H-6 Split at a rounded off-segment point must not strand the old edge ------
+    // Fuzz-found: the former forced 2->4 `split_constraint` was sound only for a point
+    // EXACTLY on the constraint — at a rounded intersection a hair off it, the erased
+    // constraint's mesh edge (exempt from the Delaunay criterion while constrained, and
+    // possibly violating it) could survive OUTSIDE the rebuilt region, leaving a non-CDT
+    // mesh mid-recovery. The fix relocates through erase -> legalize_edge -> exact cavity
+    // insert -> requeued recovery of the halves. The violation here was TRANSIENT (clean
+    // by op end), so this scenario bites in the INGENEER_KERNEL_DEBUG_AUDIT lanes
+    // (dev/asan/tsan), where the engine audits after every internal mutation; the final
+    // audit() below is the hardened-lane fallback. Out-of-domain coordinate ops from the
+    // original fuzz input are kept verbatim — they exercise rejection + rollback.
+    {
+        Tin tin;
+        CHECK(tin.insert(4.0, 0.0, 140.0).has_value());
+        CHECK(tin.insert(7.0, 7.0, 28.0).has_value());
+        CHECK(tin.insert(1.5, 0.5, 227.0).has_value());
+        const TinVertex bl1[] = {
+            {6.0, 3.0, 252.0}, {2.25, 1.5, 139.0}, {1.5, 5.0, 222.0}, {4.0, 2.5, 195.0}};
+        CHECK(tin.insert_breakline(bl1, CrossingPolicy::Split).has_value());
+        CHECK(tin.insert(1.0, 8.0, 227.0).has_value());
+        CHECK(tin.insert(0.83203125, 8.1171875, 46.0).has_value());
+        CHECK(tin.insert(0.0, 4.0, 29.0).has_value());
+        CHECK(tin.insert(7.0, 3.5, 175.0).has_value());
+        const TinVertex bl2[] = {{1.704330505127126e-41, -6.4247903112835319e-198, 0.0},
+                                 {3.609375, 2.890625, 249.0}};
+        CHECK(!tin.insert_breakline(bl2, CrossingPolicy::Split).has_value());  // out of domain
+        CHECK(tin.insert(1.41796875, 5.3828125, 16.0).has_value());
+        const TinVertex bl3[] = {{2.84765625, -1.2890625, 58.0}, {4.5, 7.5, 143.0}};
+        CHECK(tin.insert_breakline(bl3, CrossingPolicy::Split).has_value());
+        const TinVertex bl4[] = {{5.0, 4.0, 79.0},
+                                 {3.5, 2.25, 122.0},
+                                 {1.6949017940389992e+118, 1.9546238183997859e+232, 106.0},
+                                 {1.6640625, 4.234375, 64.0}};
+        CHECK(!tin.insert_breakline(bl4, CrossingPolicy::Reject).has_value());  // out of domain
+        CHECK(tin.insert(3.1128472222222223, 0.12152777777777757, 85.0).has_value());
+        CHECK(tin.insert(8.0, 0.0, 41.0).has_value());
+        audit(tin);
+        const TinVertex bl5[] = {{5.762178308823529, 2.9048713235294117, 109.0},
+                                 {0.92647058823529438, 0.97058823529411775, 17.0},
+                                 {2.9438404756433822, -0.77744427849264708, 223.0},
+                                 {3.6976273148148149, 3.2320601851851851, 110.0}};
+        CHECK(tin.insert_breakline(bl5, CrossingPolicy::Split).has_value());
+        audit(tin);
     }
 }
 

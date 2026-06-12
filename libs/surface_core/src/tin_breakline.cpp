@@ -125,12 +125,12 @@ bool Tin::retriangulate_region(const std::vector<TriId>& region, VertexId a, Ver
 
     // ---- pre-mutation validation (Phase 6.5, fuzz-found) -------------------------------
     // With a correct incircle, Anglada consumes every chain vertex and the new triangles
-    // tile the region exactly (theorem). geometry_core's incircle_2d Layer-A filter
-    // defect (see debug_audit) can select a WRONG Delaunay mate, leaving a degenerate
-    // sub-polygon with no CCW mate — a hole — which would wire a corrupt mesh. Verify
-    // closure exactly before mutating: full triangle count; every new edge paired with
-    // exactly one other new edge or exactly one region-boundary edge; every
-    // region-boundary edge consumed exactly once.
+    // tile the region exactly (theorem). A wrong-sign incircle (the since-fixed
+    // geometry_core Layer-A permanent defect demonstrated this concretely) can select a
+    // WRONG Delaunay mate, leaving a degenerate sub-polygon with no CCW mate — a hole —
+    // which would wire a corrupt mesh. The closure check stays as a permanent guard:
+    // full triangle count; every new edge paired with exactly one other new edge or
+    // exactly one region-boundary edge; every region-boundary edge consumed exactly once.
     if (polys.size() != left.size() + right.size()) return false;
     {
         std::unordered_map<std::uint64_t, int> occ;
@@ -328,8 +328,17 @@ std::expected<void, TinError> Tin::recover_edges(VertexId a0, VertexId b0, Cross
                     return;
                 }
                 if (dup != c && dup != d) {
-                    // Relocate the crossed constraint through the existing vertex.
+                    // Relocate the crossed constraint through the existing vertex. The
+                    // edge (c, d) stays in the mesh but loses its Delaunay exemption the
+                    // moment the flag drops, so it must be re-legalized immediately —
+                    // every later recovery step assumes the mesh is the CDT of the
+                    // CURRENT constraint set (fuzz-found; test 14). Mutating here is
+                    // safe: `requeued` abandons the march state before it is used.
                     constrained_.erase(edge_key(c, d));
+                    legalize_edge(c, d);
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+                    debug_audit();
+#endif
                     work.push_back({c, dup});
                     work.push_back({dup, d});
                 }
@@ -339,17 +348,29 @@ std::expected<void, TinError> Tin::recover_edges(VertexId a0, VertexId b0, Cross
                 return;
             }
 
-            // Split the constraint at the (semantically on-edge) intersection point via
-            // the dedicated segment-split primitive: 2->4 split of both adjacent
-            // triangles, halves constrained immediately, Lawson flips on both sides.
-            // (Inserting q through the regular cavity machinery is incorrect in either
-            // barrier state — see Tin::split_constraint.)
-            const auto vq = split_constraint(c, d, qx, qy, qz);
+            // Split the crossed constraint at the (semantically on-edge) intersection:
+            // erase (c, d) and immediately re-legalize its mesh edge — while constrained
+            // it was exempt from the Delaunay criterion, and a forced 2->4 split at a
+            // rounded point that is a hair OFF the segment can leave that hidden
+            // violation outside the rebuilt region (fuzz-found; test 15). With the mesh
+            // restored to the CDT of the reduced constraint set, insert the point
+            // through the standard exact cavity machinery (sound by the wart-fix
+            // guarantee; q is strictly inside the hull) and re-queue the halves plus the
+            // working segment for normal recovery. Mutating here is safe: `requeued`
+            // abandons the march state before it is used.
+            constrained_.erase(edge_key(c, d));
+            legalize_edge(c, d);
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+            debug_audit();
+#endif
+            const auto vq = insert(qx, qy, qz);
             if (!vq) {
                 failed = true;
                 fail_code = vq.error().code;
                 return;
             }
+            work.push_back({c, *vq});
+            work.push_back({*vq, d});
             work.push_back({a, *vq});
             work.push_back({*vq, b});
             requeued = true;
@@ -420,6 +441,9 @@ std::expected<void, TinError> Tin::recover_edges(VertexId a0, VertexId b0, Cross
             return std::unexpected(TinError{TinErrc::WalkOverflow});
         }
         constrained_.insert(edge_key(a, bcur));
+#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
+        debug_audit();
+#endif
     }
     return {};
 }

@@ -16,7 +16,7 @@
 // After EVERY op the harness asserts:
 //   * Tin::debug_audit() — CCW, neighbor symmetry, edge valence <= 2, Euler
 //     T = 2n - 2 - h, constrained edges present, local constrained-Delaunay (both
-//     directional incircle tests; see debug_audit for the known-predicate-defect rule).
+//     directional incircle tests, FATAL since the geometry_core Layer-A permanent fix).
 //   * insert(p) with finite coordinates and p inside the closed convex hull NEVER fails
 //     (computed independently: some finite triangle contains p by exact orient2d). This
 //     is the Phase 6.5 wart-fix guarantee.
@@ -186,6 +186,9 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
             const double z = static_cast<double>(r.u8());
             const bool ok_pt = accepted_pt(x, y, z);
             const bool contained = ok_pt && inside_hull(tin, x, y);
+            if (std::getenv("FUZZ_TRACE")) {
+                std::fprintf(stderr, "OP insert %.17g %.17g %.17g\n", x, y, z);
+            }
             const auto res = tin.insert(x, y, z);
             if (!res) {
                 if (!ok_pt) {
@@ -212,6 +215,13 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
             }
             const CrossingPolicy policy =
                 (kind & 0x4u) ? CrossingPolicy::Split : CrossingPolicy::Reject;
+            if (std::getenv("FUZZ_TRACE")) {
+                std::fprintf(stderr, "OP breakline %s",
+                             policy == CrossingPolicy::Split ? "Split" : "Reject");
+                for (const auto& pv : poly)
+                    std::fprintf(stderr, " %.17g %.17g %.17g", pv.x, pv.y, pv.z);
+                std::fprintf(stderr, "\n");
+            }
             const auto res = tin.insert_breakline(poly, policy);
             if (!res) check_rollback(tin, before);
         }

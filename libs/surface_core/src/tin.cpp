@@ -598,9 +598,8 @@ bool Tin::insert_split_flip(VertexId p, TriId container) noexcept {
 }
 
 // 2->4 split of `container`'s edge opposite v[ia] at vertex p; see tin.h. The split is
-// purely combinatorial: callers guarantee (exact orient2d) that the four resulting finite
-// triangles are strictly CCW — either p is exactly on the shared edge (insert_split_flip)
-// or p is strictly inside the adjacent quad (split_constraint).
+// purely combinatorial: the caller (insert_split_flip) guarantees (exact orient2d) that
+// p is exactly on the shared edge, so the resulting finite triangles are strictly CCW.
 void Tin::split_edge(TriId container, std::size_t ia, VertexId p, std::vector<TriId>& suspects) {
     const Tri t0 = tris_[container];
     const VertexId a = t0.v[ia];
@@ -691,10 +690,8 @@ void Tin::lawson_restore(VertexId p, std::vector<TriId> suspects) noexcept {
         if (incircle_2d(pp, pu, pw, pm) != Orientation::LEFT) continue;  // locally Delaunay
         // Flip validity (strictly convex quad p-u-am-w) is guaranteed by the classical
         // insertion theory when starting from a CDT and an EXACT incircle. Exact orient2d
-        // guard regardless: never wire an inverted triangle. The skip path is reachable
-        // today only via the known geometry_core incircle_2d Layer-A filter defect
-        // (wrong sign certified on near-cocircular input; reported upstream, see
-        // debug_audit) — the mesh stays a valid triangulation either way.
+        // guard regardless: never wire an inverted triangle — the mesh stays a valid
+        // triangulation either way.
         if (orient2d(pp, pu, pm) != Orientation::LEFT ||
             orient2d(pp, pm, pw) != Orientation::LEFT) {
             continue;
@@ -719,76 +716,72 @@ void Tin::lawson_restore(VertexId p, std::vector<TriId> suspects) noexcept {
     }
 }
 
-// Split the constrained edge (c, d) at the H-6 Split crossing point; see tin.h. The
-// classical segment-split primitive: the point is semantically ON the constraint (its
-// rounded coordinates are usually a hair off it), so BOTH adjacent triangles are 2->4
-// split, the halves are constrained immediately (flips never cross them), and Lawson
-// flips restore the CDT on both sides. Inserting the point through the regular cavity
-// machinery instead is incorrect either way: with the barrier up the far side keeps
-// stale triangles whose circumcircles contain the new constraint endpoint (fuzz-found
-// local-CDT violations); with the barrier down the mesh is no longer the CDT of the
-// reduced constraint set and Bowyer-Watson's correctness premise collapses.
-std::expected<VertexId, TinError> Tin::split_constraint(VertexId c, VertexId d, double x, double y,
-                                                        double z) noexcept {
-    KERNEL_ASSERT(constrained_.contains(edge_key(c, d)), "split_constraint: not constrained");
-    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
-        return std::unexpected(TinError{TinErrc::NonFiniteCoordinate});
-    }
-    if (!coordinate_in_domain(x) || !coordinate_in_domain(y) || !coordinate_in_domain(z)) {
-        return std::unexpected(TinError{TinErrc::CoordinateOutOfDomain});
-    }
-
-    // Locate the finite triangle T1 with directed edge (c -> d). A constrained edge is
-    // never on the hull-ghost boundary from both sides (its endpoints are mesh vertices
-    // and a segment between interior points cannot properly cross the convex hull), so
-    // T1 and its mate are finite.
-    TriId t1 = kNoTriangle;
-    std::size_t ia = 3;
-    for (TriId t = 0; t < tris_.size() && t1 == kNoTriangle; ++t) {
-        const Tri& tri = tris_[t];
-        if (!tri.alive || tri.ghost) continue;
-        for (std::size_t i = 0; i < 3; ++i) {
-            if (tri.v[(i + 1) % 3] == c && tri.v[(i + 2) % 3] == d) {
-                t1 = t;
-                ia = i;
-                break;
+// Edge-keyed Lawson legalization; see tin.h. Used after constraint RELOCATION un-flags
+// an edge that stays in the mesh: while constrained it was exempt from the Delaunay
+// criterion, so it may violate it the moment the flag drops — and every recovery step
+// after that point assumes the mesh is the CDT of the current constraint set. The O(T)
+// directed-edge scan per worklist item is acceptable: this runs only on the rare
+// rounded-intersection-hits-existing-vertex path (same idiom as tri_with_vertex).
+void Tin::legalize_edge(VertexId c, VertexId d) noexcept {
+    std::vector<std::pair<VertexId, VertexId>> work{{c, d}};
+    while (!work.empty()) {
+        const auto [u, w] = work.back();
+        work.pop_back();
+        if (u == kGhostVertex || w == kGhostVertex) continue;
+        if (constrained_.contains(edge_key(u, w))) continue;
+        TriId t = kNoTriangle;
+        std::size_t is = 3;
+        for (TriId i = 0; i < tris_.size() && t == kNoTriangle; ++i) {
+            const Tri& tri = tris_[i];
+            if (!tri.alive || tri.ghost) continue;
+            for (std::size_t k = 0; k < 3; ++k) {
+                if (tri.v[(k + 1) % 3] == u && tri.v[(k + 2) % 3] == w) {
+                    t = i;
+                    is = k;
+                    break;
+                }
             }
         }
+        if (t == kNoTriangle) continue;  // not (any longer) a finite mesh edge
+        const TriId m = tris_[t].n[is];
+        if (m == kNoTriangle || !tris_[m].alive || tris_[m].ghost) continue;  // hull edge
+        const VertexId s = tris_[t].v[is];
+        std::size_t io = 0;
+        while (tris_[m].v[io] == u || tris_[m].v[io] == w) ++io;
+        const VertexId o = tris_[m].v[io];
+        if (s == kGhostVertex || o == kGhostVertex) continue;
+        const Point2 ps{vertices_[s].x, vertices_[s].y};
+        const Point2 pu{vertices_[u].x, vertices_[u].y};
+        const Point2 pw{vertices_[w].x, vertices_[w].y};
+        const Point2 po{vertices_[o].x, vertices_[o].y};
+        if (incircle_2d(ps, pu, pw, po) != Orientation::LEFT) continue;  // locally Delaunay
+        // A due flip's quad is strictly convex (classical); exact guard regardless —
+        // never wire an inverted triangle.
+        if (orient2d(ps, pu, po) != Orientation::LEFT ||
+            orient2d(ps, po, pw) != Orientation::LEFT) {
+            continue;
+        }
+        // (u, w) -> (s, o): t becomes (s, u, o), m becomes (s, o, w) — identical
+        // bookkeeping to lawson_restore's flip with p := s, am := o.
+        const TriId t_su = tris_[t].n[(is + 2) % 3];  // across (s, u): stays with t
+        const TriId t_ws = tris_[t].n[(is + 1) % 3];  // across (w, s): moves to m
+        std::size_t iu = 0;
+        while (tris_[m].v[iu] != u) ++iu;
+        std::size_t iw = 0;
+        while (tris_[m].v[iw] != w) ++iw;
+        const TriId m_uo = tris_[m].n[iw];  // across (u, o): moves to t
+        const TriId m_ow = tris_[m].n[iu];  // across (o, w): stays with m
+        tris_[t].v = {s, u, o};
+        tris_[t].n = {m_uo, m, t_su};
+        tris_[m].v = {s, o, w};
+        tris_[m].n = {m_ow, t_ws, t};
+        replace_neighbor(t_ws, t, m);
+        replace_neighbor(m_uo, m, t);
+        work.push_back({s, u});
+        work.push_back({u, o});
+        work.push_back({o, w});
+        work.push_back({w, s});
     }
-    if (t1 == kNoTriangle) return std::unexpected(TinError{TinErrc::WalkOverflow});
-    const TriId t2 = tris_[t1].n[ia];
-    if (t2 == kNoTriangle || !tris_[t2].alive || tris_[t2].ghost) {
-        return std::unexpected(TinError{TinErrc::WalkOverflow});
-    }
-    const VertexId a1 = tris_[t1].v[ia];
-    std::size_t i2 = 0;
-    while (tris_[t2].v[i2] == c || tris_[t2].v[i2] == d) ++i2;
-    const VertexId a2 = tris_[t2].v[i2];
-
-    // The rounded point must be strictly inside the quad (a1, c, a2, d) so that all four
-    // split triangles are strictly CCW (exact orient2d). Outside it the crossing is
-    // numerically unsplittable: fail loudly per the audited Split policy, BEFORE any
-    // mutation (insert_breakline's snapshot rollback restores everything).
-    if (orient_vv(a1, c, x, y) != Orientation::LEFT ||
-        orient_vv(d, a1, x, y) != Orientation::LEFT ||
-        orient_vv(a2, d, x, y) != Orientation::LEFT ||
-        orient_vv(c, a2, x, y) != Orientation::LEFT) {
-        return std::unexpected(TinError{TinErrc::ConstraintIntersection});
-    }
-
-    vertices_.push_back(TinVertex{x, y, z});
-    const VertexId p = static_cast<VertexId>(vertices_.size() - 1);
-    std::vector<TriId> suspects;
-    split_edge(t1, ia, p, suspects);
-    last_tri_ = suspects.front();
-    constrained_.erase(edge_key(c, d));
-    constrained_.insert(edge_key(c, p));
-    constrained_.insert(edge_key(p, d));
-    lawson_restore(p, std::move(suspects));
-#if defined(INGENEER_KERNEL_DEBUG_AUDIT)
-    debug_audit();
-#endif
-    return p;
 }
 
 // KERNEL_DEBUG_ASSERT-tier full-mesh audit; see tin.h for the contract.
@@ -865,17 +858,11 @@ void Tin::debug_audit() const noexcept {
         // one). The two directional tests are mathematically EQUIVALENT statements about
         // the same quad; a violation is reported only when BOTH agree.
         //
-        // CURRENTLY NON-FATAL (kCdtOptimalityFatal == false): geometry_core's
-        // incircle_2d Layer-A filter under-estimates its error bound (it scales by
-        // |minor| — the CANCELLED 2x2 difference — instead of Shewchuk's sum of absolute
-        // products) and can certify a WRONG SIGN on near-cocircular input. The defect
-        // was found BY this audit (Phase 6.5 fuzzing) and is reported upstream;
-        // geometry_core is read-only for this phase. Because the ENGINE's own flip and
-        // conflict decisions consume the same defective predicate, it can wire meshes
-        // whose CDT-optimality a (correct) audit refutes on ulp-scale sliver quads, so
-        // strict enforcement is impossible until the upstream fix lands — flip
-        // kCdtOptimalityFatal to true at that moment. All STRUCTURAL invariants above
-        // (exact orient2d is sound) remain fatal.
+        // FATAL (kCdtOptimalityFatal == true) since the geometry_core incircle_2d
+        // Layer-A permanent fix landed (the filter previously scaled its bound by the
+        // CANCELLED 2x2 minors instead of Shewchuk's sum of absolute products and could
+        // certify wrong signs; found BY this audit under Phase 6.5 fuzzing, regression
+        // vectors in geometry_core test_predicates.cpp).
         Orientation dir[2];
         for (int k2 = 0; k2 < 2; ++k2) {
             const Tri& tri = tris_[inc[static_cast<std::size_t>(k2)].tri];
@@ -886,7 +873,7 @@ void Tin::debug_audit() const noexcept {
                                   Point2{vertices_[other].x, vertices_[other].y});
         }
         if (dir[0] == Orientation::LEFT && dir[1] == Orientation::LEFT) {
-            constexpr bool kCdtOptimalityFatal = false;  // flip when upstream fix lands
+            constexpr bool kCdtOptimalityFatal = true;
             static unsigned long cdt_violations = 0;
             ++cdt_violations;
             if (cdt_violations <= 8) {
