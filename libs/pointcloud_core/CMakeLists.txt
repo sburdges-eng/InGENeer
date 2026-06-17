@@ -11,6 +11,8 @@ add_library(pointcloud_core
     src/point_cloud.cpp
     src/point_index.cpp)
 
+target_compile_definitions(pointcloud_core PRIVATE $<$<CONFIG:Debug>:INGENEER_KERNEL_DEBUG_AUDIT=1>)
+
 target_include_directories(pointcloud_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # nanoflann (BSD) is consumed ONLY inside src/point_index.cpp behind a PIMPL, so it is a
