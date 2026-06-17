@@ -87,10 +87,10 @@ static_metadata() {
   )
   local -a found_keys=()
   while IFS= read -r line; do
-    if [[ "$line" =~ o\ +=\ \"\\\"\([^\"]+\)\\\" ]]; then
+    if [[ "$line" =~ o\ +=\ \"\ \ \"\\\"\([a-z_]+\)\\\" ]]; then
       found_keys+=("${BASH_REMATCH[1]}")
     fi
-  done < <(rg 'o \+= "\\\\"' "$META_CPP" || true)
+  done < <(rg 'o \+= "  \\"' "$META_CPP" || true)
 
   if [ "${#found_keys[@]}" -eq 0 ]; then
     echo "FAIL: could not extract metadata writer keys from $META_CPP"
@@ -153,7 +153,7 @@ run_ctest_preset() {
   fi
 
   cmake --preset "$preset" >/dev/null
-  cmake --build --preset "$preset" -- "$@"
+  cmake --build --preset "$preset" --target test_octree_format test_morton test_pointcloud_sha256 test_octree_checksum test_octree_metadata
   ctest --preset "$preset" -R 'pointcloud\.octree' --output-on-failure
 }
 
