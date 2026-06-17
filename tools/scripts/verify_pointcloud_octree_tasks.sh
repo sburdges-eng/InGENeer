@@ -86,11 +86,18 @@ static_metadata() {
     schema_has_gps_time schema_has_rgb version
   )
   local -a found_keys=()
-  while IFS= read -r line; do
-    if [[ "$line" =~ o\ +=\ \"\ \ \"\\\"\([a-z_]+\)\\\" ]]; then
-      found_keys+=("${BASH_REMATCH[1]}")
-    fi
-  done < <(rg 'o \+= "  \\"' "$META_CPP" || true)
+  while IFS= read -r key; do
+    [ -n "$key" ] && found_keys+=("$key")
+  done < <(python3 - "$META_CPP" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+block = text.split("write_metadata_json", 1)[1].split("parse_metadata_json", 1)[0]
+for line in block.splitlines():
+    if "o +=" in line:
+        for k in re.findall(r'"  \\"([a-z0-9_]+)\\"', line):
+            print(k)
+PY
+)
 
   if [ "${#found_keys[@]}" -eq 0 ]; then
     echo "FAIL: could not extract metadata writer keys from $META_CPP"
