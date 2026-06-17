@@ -6,3 +6,6 @@ target_include_directories(third_party_cdt INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 add_library(third_party_nanoflann INTERFACE)
 target_include_directories(third_party_nanoflann INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/nanoflann/include)
+
+add_library(third_party_xxhash INTERFACE)
+target_include_directories(third_party_xxhash INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/xxhash/include)

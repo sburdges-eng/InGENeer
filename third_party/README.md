@@ -28,6 +28,7 @@ Current packages:
 |---|---|---|
 | `cdt/` | MPL-2.0 | `libs/geometry_core` (constrained Delaunay, Phase 5.3) |
 | `nanoflann/` | BSD | `libs/geometry_core` / `libs/pointcloud_core` (KD-tree) |
+| `xxhash/` | BSD-2-Clause | `libs/pointcloud_core` (XXH3-64 node checksums) |
 
 Note: owned geometry-correctness code (e.g. Shewchuk-style predicates ported from auracad)
 lives in `libs/geometry_core/`, **not** here — it is infrastructure we own and evolve, not
