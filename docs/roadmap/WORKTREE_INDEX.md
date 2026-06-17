@@ -62,6 +62,25 @@ Default base directory: **`$HOME/Dev-wt`** (override with `INGENEER_WORKTREE_BAS
 | `ingenieer/roadmap/goal-2/claude-code` | `ingenieer-g2-claude` |
 | `ingenieer/roadmap/goal-2/codex` | `ingenieer-g2-codex` |
 | `ingenieer/roadmap/goal-2/gemini` | `ingenieer-g2-gemini` |
+| `feat/phase7-pointcloud-octree` | `ingenieer-phase7-octree` |
+
+## Phase 7 octree lane (pointcloud_core)
+
+Out-of-core octree implementation (ADR-0028) runs on **`feat/phase7-pointcloud-octree`**, worktree **`$HOME/Dev-wt/ingenieer-phase7-octree`**. Plan: [`docs/superpowers/plans/2026-06-16-out-of-core-octree.md`](../superpowers/plans/2026-06-16-out-of-core-octree.md). Verification lane:
+
+```bash
+cd "$HOME/Dev-wt/ingenieer-phase7-octree"
+./tools/scripts/verify_pointcloud_octree_tasks.sh          # Task 6 static + ctest
+./tools/scripts/verify_pointcloud_octree_tasks.sh --asan     # + asan-ubsan preset
+```
+
+Create manually if missing:
+
+```bash
+git branch feat/phase7-pointcloud-octree HEAD   # from pointcloud_core foundation commit
+mkdir -p "$HOME/Dev-wt"
+git worktree add "$HOME/Dev-wt/ingenieer-phase7-octree" feat/phase7-pointcloud-octree
+```
 
 ## Recreate worktrees manually (if removed)
 

@@ -459,6 +459,33 @@ lanes operational ✓. **Phase 6 is EXITED.**
 dev/asan-ubsan/tsan/hardened = 92/92; numeric gate ✓; clang-format ✓; verify_gate.sh ✓;
 old oracle fixtures byte-identity re-proven.
 
+## Session Addendum — 2026-06-16 (Phase 7 — out-of-core octree, IN PROGRESS)
+
+**Branch / worktree:** `feat/phase7-pointcloud-octree` @ `f5e464e` (from Phase 6 exit +
+`pointcloud_core` in-memory foundation). Worktree: `$HOME/Dev-wt/ingenieer-phase7-octree`.
+Keep Phase 6 exit branch (`feat/phase6-exit-perf-oracle-adrs`) free of octree on-disk
+format work.
+
+**Plan:** [`docs/superpowers/plans/2026-06-16-out-of-core-octree.md`](superpowers/plans/2026-06-16-out-of-core-octree.md)
+(spec: [`docs/superpowers/specs/2026-06-11-out-of-core-octree-design.md`](superpowers/specs/2026-06-11-out-of-core-octree-design.md), ADR-0028).
+
+**Active tasks (agentic plan):** Tasks 1–6 (format, Morton, SHA-256, xxHash, metadata.json)
+→ Task 7 in-core builder (additive integer sampling, BFS numbering, `.octree/` write) →
+reader/cache/traversal/fuzz/audit-boundary tests.
+
+**Verification lane (Cursor / tmux):**
+
+```bash
+cd "$HOME/Dev-wt/ingenieer-phase7-octree"
+./tools/scripts/verify_pointcloud_octree_tasks.sh
+./tools/scripts/verify_pointcloud_octree_tasks.sh --asan   # after Task 6 on disk
+```
+
+**Determinism gates (non-negotiable):** byte-identical `hierarchy.bin` + `points.bin` for
+same input; no RNG in build/sample path; single FP step (`floor` quantization); 16 KiB
+payload alignment; sorted-key `metadata.json` (audit anchor); `std::expected` on public
+boundary.
+
 **Remaining tiers for "all project work":** Phase 7 (coordinate_core PROJ CRS +
 pointcloud_core PDAL ingestion + ADR-0028 octree) → Phase 8 (RHI seam + Metal
 rendering spine on the proven interop) → Phase 9 (ai_core + flywheel runtime) — large
