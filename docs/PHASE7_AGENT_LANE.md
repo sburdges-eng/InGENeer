@@ -4,9 +4,9 @@
 
 | Lane | Owner | Role |
 |------|-------|------|
-| Cursor Agent | Tasks 2–7 implementation + commits | Primary coder |
+| Cursor Agent | Tasks 2–7 implementation + commits | Primary coder — **T7 done** |
 | tmux pane | `./tools/scripts/phase7_verify_watch.sh` | Poll + ctest on each new HEAD |
-| Claude Code | **HOLD** until Cursor reaches Task 8 | Avoid worktree clobber |
+| Claude Code | **Task 8+** (reader, cache, traversal) | Resume after T7 commit lands |
 
 Claude paste when resuming at Task 8:
 

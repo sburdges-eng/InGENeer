@@ -7,7 +7,8 @@ add_library(pointcloud_core
     src/morton.cpp
     src/sha256.cpp
     src/octree_checksum.cpp
-    src/octree_metadata.cpp)
+    src/octree_metadata.cpp
+    src/octree_build_incore.cpp)
 
 target_compile_definitions(pointcloud_core PRIVATE $<$<CONFIG:Debug>:INGENEER_KERNEL_DEBUG_AUDIT=1>)
 
@@ -47,3 +48,8 @@ add_test(NAME pointcloud.octree_checksum COMMAND test_octree_checksum)
 add_executable(test_octree_metadata tests/test_octree_metadata.cpp)
 target_link_libraries(test_octree_metadata PRIVATE pointcloud_core ingeneer_engine_flags)
 add_test(NAME pointcloud.octree_metadata COMMAND test_octree_metadata)
+
+add_executable(test_octree_build_incore tests/test_octree_build_incore.cpp)
+target_link_libraries(test_octree_build_incore PRIVATE pointcloud_core ingeneer_engine_flags)
+target_include_directories(test_octree_build_incore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+add_test(NAME pointcloud.octree_build_incore COMMAND test_octree_build_incore)
