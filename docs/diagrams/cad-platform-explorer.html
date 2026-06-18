@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CAD Platform Hierarchy — Interactive Explorer</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="cad-platform-nodes.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #60a5fa;
+      --expand: #4ade80;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.15rem; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(260px, 340px) 1fr;
+      min-height: 0;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    }
+    #tree-panel {
+      border-right: 1px solid var(--border);
+      overflow: auto;
+      padding: 0.75rem;
+      background: #121a24;
+    }
+    #tree-panel .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    #tree-panel button {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    #tree-panel button:hover { border-color: var(--accent); color: var(--accent); }
+    .tree { list-style: none; margin: 0; padding: 0; }
+    .tree ul { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--border); }
+    .tree li { margin: 0.15rem 0; }
+    .tree-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.35rem;
+      padding: 0.3rem 0.4rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .tree-row:hover { background: rgba(96, 165, 250, 0.08); }
+    .tree-row.selected { background: rgba(96, 165, 250, 0.18); outline: 1px solid var(--accent); }
+    .toggle {
+      width: 1.1rem;
+      flex-shrink: 0;
+      color: var(--expand);
+      font-weight: 700;
+      user-select: none;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .toggle.leaf { visibility: hidden; }
+    .label { font-size: 0.82rem; line-height: 1.35; }
+    .label .repo { color: var(--accent); font-family ui-monospace, monospace; font-size: 0.78rem; }
+    .label .role { color: var(--muted); font-size: 0.72rem; display: block; margin-top: 0.1rem; }
+    #diagram-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    #breadcrumb {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: var(--panel);
+    }
+    #breadcrumb span { color: var(--accent); cursor: pointer; }
+    #breadcrumb span:hover { text-decoration: underline; }
+    #detail {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      max-height: 140px;
+      overflow: auto;
+      background: #151d28;
+    }
+    #detail strong { color: var(--text); }
+    #mermaid-wrap {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+    #mermaid-wrap svg { max-width: 100%; height: auto; }
+    .legend {
+      padding: 0.5rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.7rem;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CAD Platform Hierarchy</h1>
+    <p>Click tree nodes to focus · use +/− to explode or collapse branches · platform hub: <code>~/Dev/CAD</code></p>
+  </header>
+  <main>
+    <aside id="tree-panel">
+      <div class="toolbar">
+        <button type="button" id="expand-all">Expand all</button>
+        <button type="button" id="collapse-all">Collapse all</button>
+        <button type="button" id="reset-root">Reset to root</button>
+      </div>
+      <ul class="tree" id="tree-root"></ul>
+    </aside>
+    <section id="diagram-panel">
+      <div id="breadcrumb"></div>
+      <div id="detail"></div>
+      <div id="mermaid-wrap"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#60a5fa"></span>Vision</span>
+        <span><span class="dot" style="background:#a78bfa"></span>Program</span>
+        <span><span class="dot" style="background:#4ade80"></span>Kernel</span>
+        <span><span class="dot" style="background:#fbbf24"></span>Pipeline</span>
+        <span><span class="dot" style="background:#fb923c"></span>Orchestration</span>
+        <span><span class="dot" style="background:#f472b6"></span>Host</span>
+        <span><span class="dot" style="background:#9ca3af"></span>Advisory (dashed)</span>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const NODES = window.CAD_PLATFORM_NODES;
+    const STYLES = window.CAD_PLATFORM_STYLES;
+    let mermaidReady = false;
+
+    function initMermaid() {
+      if (typeof mermaid === "undefined") return false;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "dark",
+        flowchart: { curve: "basis", padding: 16, htmlLabels: true },
+        securityLevel: "loose",
+      });
+      mermaidReady = true;
+      return true;
+    }
+
+    const expanded = new Set(["root"]);
+    let selectedId = "root";
+
+    function esc(s) {
+      return s.replace(/"/g, "#quot;").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+    }
+
+    function nodeMermaidId(id) {
+      return "n_" + id.replace(/[^a-zA-Z0-9]/g, "_");
+    }
+
+    function buildDiagram(focusId) {
+      const focus = NODES[focusId];
+      const childIds = focus.children.length ? focus.children : [focusId];
+      const lines = ["flowchart TB"];
+      Object.entries(STYLES).forEach(([k, v]) => lines.push(`    classDef ${k} ${v}`));
+
+      const mid = nodeMermaidId(focusId);
+      lines.push(`    ${mid}["${esc(focus.title)}<br/><i>${esc(focus.role)}</i>"]:::${focus.style}`);
+
+      focus.children.forEach((cid) => {
+        const c = NODES[cid];
+        const cn = nodeMermaidId(cid);
+        lines.push(`    ${cn}["${esc(c.title)}<br/><i>${esc(c.role)}</i>"]:::${c.style}`);
+        lines.push(`    ${mid} --> ${cn}`);
+        if (c.children.length) {
+          c.children.slice(0, 3).forEach((gcid) => {
+            const gc = NODES[gcid];
+            const gn = nodeMermaidId(gcid);
+            lines.push(`    ${gn}["${esc(gc.title)}"]:::${gc.style}`);
+            lines.push(`    ${cn} -.-> ${gn}`);
+          });
+          if (c.children.length > 3) {
+            const more = nodeMermaidId(cid + "_more");
+            lines.push(`    ${more}["+${c.children.length - 3} more…"]:::${c.style}`);
+            lines.push(`    ${cn} -.-> ${more}`);
+          }
+        }
+      });
+
+      if (focusId === "ingeneer") {
+        lines.push(`    ${nodeMermaidId("orch-py")} --> ${nodeMermaidId("icad-host")}`);
+        lines.push(`    ${nodeMermaidId("orch-cs")} --> ${nodeMermaidId("icad-host")}`);
+      }
+      if (focusId === "totali") {
+        lines.push(`    ${nodeMermaidId("totali")} --> ${nodeMermaidId("auracad")}`);
+      }
+      if (focusId === "l4l") {
+        lines.push(`    ${nodeMermaidId("l4l-cad")} --> ${nodeMermaidId("auracad")}`);
+      }
+
+      return lines.join("\n");
+    }
+
+    function pathTo(id) {
+      const path = [];
+      function walk(nid, trail) {
+        if (nid === id) { path.push(...trail, nid); return true; }
+        const n = NODES[nid];
+        for (const c of n.children) {
+          if (walk(c, [...trail, nid])) return true;
+        }
+        return false;
+      }
+      walk("root", []);
+      return path;
+    }
+
+    function renderTree() {
+      const root = document.getElementById("tree-root");
+      root.innerHTML = "";
+
+      function renderNode(id) {
+        const n = NODES[id];
+        const li = document.createElement("li");
+        const row = document.createElement("div");
+        row.className = "tree-row" + (id === selectedId ? " selected" : "");
+        row.dataset.id = id;
+
+        const toggle = document.createElement("span");
+        toggle.className = "toggle" + (n.children.length ? "" : " leaf");
+        toggle.textContent = n.children.length ? (expanded.has(id) ? "−" : "+") : "·";
+
+        const label = document.createElement("div");
+        label.className = "label";
+        label.innerHTML = `<strong>${esc(n.title)}</strong>${n.repo ? `<span class="repo">${esc(n.repo)}</span>` : ""}<span class="role">${esc(n.role)}</span>`;
+
+        row.appendChild(toggle);
+        row.appendChild(label);
+        li.appendChild(row);
+
+        toggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!n.children.length) return;
+          if (expanded.has(id)) expanded.delete(id);
+          else expanded.add(id);
+          renderTree();
+        });
+
+        row.addEventListener("click", () => {
+          selectedId = id;
+          pathTo(id).forEach((p) => expanded.add(p));
+          updateView();
+          renderTree();
+        });
+
+        if (n.children.length && expanded.has(id)) {
+          const ul = document.createElement("ul");
+          n.children.forEach((cid) => ul.appendChild(renderNode(cid)));
+          li.appendChild(ul);
+        }
+        return li;
+      }
+
+      root.appendChild(renderNode("root"));
+    }
+
+    let renderSeq = 0;
+    async function renderMermaid(focusId) {
+      const wrap = document.getElementById("mermaid-wrap");
+      const src = buildDiagram(focusId);
+      if (!mermaidReady && !initMermaid()) {
+        wrap.innerHTML = "<pre>Loading Mermaid…</pre>";
+        return;
+      }
+      const seq = ++renderSeq;
+      const graphId = "mmd_" + focusId.replace(/\W/g, "_") + "_" + seq;
+      try {
+        const { svg } = await mermaid.render(graphId, src);
+        if (seq !== renderSeq) return;
+        wrap.innerHTML = svg;
+      } catch (e) {
+        if (seq !== renderSeq) return;
+        wrap.innerHTML = "<pre>" + esc(src) + "\n\n%% render error: " + esc(e.message) + "</pre>";
+      }
+    }
+
+    function updateView() {
+      const n = NODES[selectedId];
+      const crumbs = pathTo(selectedId);
+      const bc = document.getElementById("breadcrumb");
+      bc.innerHTML = crumbs.map((id, i) => {
+        const label = NODES[id].title;
+        if (i === crumbs.length - 1) return `<strong>${esc(label)}</strong>`;
+        return `<span data-id="${id}">${esc(label)}</span> › `;
+      }).join("");
+      bc.querySelectorAll("span[data-id]").forEach((s) => {
+        s.addEventListener("click", () => {
+          selectedId = s.dataset.id;
+          updateView();
+          renderTree();
+        });
+      });
+
+      document.getElementById("detail").innerHTML = `<strong>${esc(n.title)}</strong>${n.repo ? ` · <code>${esc(n.repo)}</code>` : ""}<br/>${esc(n.detail)}`;
+      renderMermaid(selectedId);
+    }
+
+    document.getElementById("expand-all").addEventListener("click", () => {
+      Object.keys(NODES).forEach((id) => expanded.add(id));
+      renderTree();
+    });
+    document.getElementById("collapse-all").addEventListener("click", () => {
+      expanded.clear();
+      expanded.add("root");
+      renderTree();
+    });
+    document.getElementById("reset-root").addEventListener("click", () => {
+      selectedId = "root";
+      expanded.clear();
+      expanded.add("root");
+      updateView();
+      renderTree();
+    });
+
+    function boot() {
+      if (!NODES || !STYLES) {
+        document.getElementById("mermaid-wrap").innerHTML = "<pre>Failed to load cad-platform-nodes.js — open via file:// with both files in docs/diagrams/</pre>";
+        return;
+      }
+      initMermaid();
+      renderTree();
+      updateView();
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      boot();
+    }
+  </script>
+</body>
+</html>

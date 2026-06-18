@@ -6,5 +6,8 @@
   "files.trimTrailingWhitespace": true,
   "[markdown]": {
     "files.trimTrailingWhitespace": false
-  }
+  },
+  "cursorpyright.analysis.extraPaths": [
+    "orchestrator/src"
+  ]
 }

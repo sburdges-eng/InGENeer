@@ -1,16 +1,16 @@
 {
   "version": 1,
   "hooks": {
-    "sessionEnd": [
+    "sessionStart": [
       {
-        "command": ".cursor/hooks/notify-session-end.sh",
+        "command": "/Users/seanburdges/Dev/workspace-scaffold/hooks/scope-session-start.sh",
         "timeout": 10
       }
     ],
-    "subagentStop": [
+    "beforeSubmitPrompt": [
       {
-        "command": ".cursor/hooks/notify-subagent-stop.sh",
-        "timeout": 10
+        "command": "/Users/seanburdges/Dev/workspace-scaffold/hooks/scope-prompt-routing.sh",
+        "timeout": 5
       }
     ]
   }
