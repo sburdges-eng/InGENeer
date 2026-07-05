@@ -1,0 +1,26 @@
+---
+description: InGENeer scope — orchestrator Python, iCAD .NET bridge, schemas
+alwaysApply: true
+---
+
+# InGENeer scope
+
+Canonical root: `~/Dev/CAD/projects/InGENeer/` (compat: `~/Dev/InGENeer`).
+
+## Primary folders
+
+| Area | Path | IDE / compiler |
+|------|------|----------------|
+| Orchestrator | `orchestrator/` | Python 3, ruff, pytest; venv at `orchestrator/.venv` |
+| iCAD bridge | `icad-addin/` | .NET — `InGENeer.IcadAddin.slnx` |
+| Contracts | `schemas/` | JSON Schema only |
+| Governance | `docs/governance/autonomation/` | Read before architecture changes |
+
+## Verify
+
+```bash
+cd orchestrator && pip install -e ".[dev]" && ruff check src tests && python -m pytest -q
+dotnet build icad-addin/InGENeer.IcadAddin.slnx -c Release
+```
+
+Cross-CAD context: open `cad-platform.code-workspace` or `CAD/diagrams/cad-platform-explorer.html`.

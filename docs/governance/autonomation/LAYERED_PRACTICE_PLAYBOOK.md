@@ -11,7 +11,7 @@
 ## Versioning (two numbers)
 
 | Artifact | Field / constant | Current | Bump when |
-|----------|------------------|---------|-----------|
+| --- | --- | --- | --- |
 | Intent envelope | `schemaVersion` in JSON + `CadIntentEnvelope` | `1.1.0` | Breaking change to envelope fields |
 | Wire / contract payloads | `ingenieer.contracts.SCHEMA_VERSION` | `1.0.0` | Breaking change to outer contract shape |
 
@@ -37,7 +37,7 @@ flowchart LR
 ```
 
 | Layer | Name | Primary artifacts |
-|-------|------|-------------------|
+| --- | --- | --- |
 | L0 | Product and boundaries | [AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md](AUTONOMATION_SYSTEM_ARCHITECTURE_RULES.md), [README.md](../README.md) |
 | L1 | Intent contract | [schemas/cad_intent_envelope.schema.json](../schemas/cad_intent_envelope.schema.json), [docs/INTENT_COMMAND_CATALOG.md](../docs/INTENT_COMMAND_CATALOG.md), `CadIntentEnvelope` in `orchestrator/src/ingenieer/models.py` |
 | L2 | Orchestrator runtime | `orchestrator/src/ingenieer/orchestrator.py` (`PHASE_ORDER`, phase classes), `OrchestratorConfig` / `OrchestratorContext` in `models.py` |
@@ -55,7 +55,7 @@ flowchart LR
 Phases live in `orchestrator/src/ingenieer/orchestrator.py`.
 
 | Phase | Layers | Practice focus |
-|-------|--------|----------------|
+| --- | --- | --- |
 | `validate_intent` | L1, L2 | Pydantic + schema; catalog-aligned `command`; no geometry |
 | `sync_baseline` | L2, L5/L6 when real | Fingerprint from host; fail closed if `modelFingerprintExpected` mismatches |
 | `dispatch_execute` | L5, L6 | Serialize envelope; host queues work on UI thread; transactional mutation + rollback |
@@ -157,9 +157,9 @@ Phases live in `orchestrator/src/ingenieer/orchestrator.py`.
 ## Naming (quick reference)
 
 | Name | Meaning |
-|------|---------|
-| **InGENeer** | Civil / survey / construction CAD (this repo’s orchestrator + contracts). |
-| **AIrchetect** | Mechanical 3D CAD track (e.g. FreeCAD worker)—same orchestrator vs execution split. |
+| --- | --- |
+| **InGENeer** | Civil / survey / construction CAD (this repo's orchestrator + contracts). |
+| **AIrchetect** | Architectural 3D CAD track (auracad-native execution, ADR-0031)—same orchestrator vs execution split. |
 | **AutonomAtIon** | Parent program: boundaries between orchestration and execution. |
 
 ---

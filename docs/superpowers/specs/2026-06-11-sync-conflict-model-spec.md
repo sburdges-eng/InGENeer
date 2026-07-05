@@ -1,6 +1,6 @@
 # Sync Conflict Model — Design Spec
 
-**Status:** Draft
+**Status:** Draft — promoted to ADR-0030 (Proposed, `docs/adr/ADR-0030-sync-conflict-model.md`), awaiting owner sign-off on §9 (D-S1–D-S5)
 **Date:** 2026-06-11
 **Phase:** 10 (Plugin SDK ABI + sync conflict model)
 **Pending Task:** 7 (command-log-replay sync over promotion log → ADR; spec-first)

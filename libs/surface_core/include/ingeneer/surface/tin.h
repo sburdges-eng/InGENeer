@@ -126,6 +126,30 @@ public:
     // splits the constraint at that point: both halves stay constrained.
     std::expected<VertexId, TinError> insert(double x, double y, double z) noexcept;
 
+    // Bulk insertion (T11; src/tin_bulk.cpp). Semantically EXACTLY a sequence of insert()
+    // calls — every point goes through the unchanged single-point machinery (duplicate
+    // detection, constrained-edge splits, domain checks, Phase 6.5 guarantees) — but in a
+    // spatially coherent order: BRIO rounds with Hilbert-curve ordering inside each round,
+    // which turns the remembering walk's O(√n)-per-insert locate cost into O(1) expected
+    // (see BENCHMARKS.md). The resulting mesh is the CDT of the same point/constraint set;
+    // it can differ combinatorially from sequential-order insertion only in cocircular-tie
+    // cases. The ordering is fully deterministic (integer Hilbert keys over a quantized
+    // bbox grid + hash-assigned rounds; no RNG, per C-4.6).
+    //
+    // Returned ids map 1:1 to INPUT order: ids[i] is the vertex id for pts[i], with exact
+    // xy duplicates (within the batch or against pre-existing vertices) resolving to the
+    // already-present id, exactly as insert() does.
+    //
+    // Error policy — all-or-nothing (loud failure, matching insert_breakline's rollback
+    // contract): the whole batch is validated up front; if ANY point is non-finite or
+    // outside the predicate safety domain, the call returns the first such point's error
+    // (in input order) and the TIN is untouched. Silently skipping bad survey shots would
+    // hide upstream data corruption. The only mid-batch failure left is insert()'s
+    // defensive WalkOverflow; on that path the TIN is restored to its exact pre-call
+    // state from a snapshot and the error is returned.
+    std::expected<std::vector<VertexId>, TinError> insert_many(
+        std::span<const TinVertex> pts) noexcept;
+
     // Insert a polyline of constrained edges ("breakline", Phase 6.2). Endpoints are
     // inserted as vertices first (exact-duplicate xy reuses the existing vertex; its z is
     // kept), then each consecutive pair is recovered as a constrained edge via cavity

@@ -1,6 +1,6 @@
 # Plugin SDK ABI — Hourglass C ABI Spec
 
-**Status:** Draft
+**Status:** Draft — promoted to ADR-0029 (Proposed, `docs/adr/ADR-0029-plugin-sdk-hourglass-c-abi.md`), awaiting owner sign-off on §9
 **Date:** 2026-06-11
 **Phase:** 10 (Plugin SDK ABI; handoff Pending Task 7)
 **Pending Task:** 7

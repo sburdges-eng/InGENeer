@@ -33,5 +33,7 @@ D-numbers trace to the Architecture Discovery Interview (Rounds 1–3).
 | [0026](ADR-0026-licensed-professional-identity.md) | Licensed professional identity: cryptographic signatures, offline-capable | R-2.3, C-1.1 | Accepted |
 | [0027](ADR-0027-baseline-freeze-protocol.md) | Baseline freeze protocol: SHA-256, manifests, freeze tags | ADR-0023 | Accepted |
 | [0028](ADR-0028-out-of-core-pointcloud-octree.md) | Out-of-core point-cloud octree: additive sampling, single-blob sidecar, arena residency; home `pointcloud_core` | R-7.3, risk R-9, OQ-1 | Accepted |
+| [0029](ADR-0029-plugin-sdk-hourglass-c-abi.md) | Plugin SDK hourglass C ABI: deny-by-default capabilities, no certify primitive | D7, ARCH §11 OQ-1; sign-offs pending | Proposed |
+| [0030](ADR-0030-sync-conflict-model.md) | Sync conflict model: command-log replay, authority-aware merge, per-replica hash-DAG | D10, A-9; D-S1–D-S5 pending | Proposed |
 
 Rejected alternatives are recorded inside each ADR. Risk register: `../architecture/RISK_REGISTER.md`.

@@ -1,0 +1,73 @@
+%% CAD Platform Hierarchy — source graph (all levels)
+%% Open cad-platform-explorer.html for interactive expand/collapse.
+%% Render: mmdc -i cad-platform-hierarchy.mmd -o cad-platform-hierarchy.svg
+
+flowchart TB
+  classDef vision fill:#1e3a5f,stroke:#60a5fa,color:#e2e8f0
+  classDef program fill:#312e81,stroke:#a78bfa,color:#e2e8f0
+  classDef kernel fill:#14532d,stroke:#4ade80,color:#e2e8f0
+  classDef pipeline fill:#713f12,stroke:#fbbf24,color:#e2e8f0
+  classDef orch fill:#7c2d12,stroke:#fb923c,color:#e2e8f0
+  classDef host fill:#831843,stroke:#f472b6,color:#e2e8f0
+  classDef advisory fill:#374151,stroke:#9ca3af,color:#e2e8f0,stroke-dasharray:5 5
+  classDef heritage fill:#4c1d95,stroke:#c4b5fd,color:#e2e8f0,stroke-dasharray:5 5
+
+  VISION["Platform Vision<br/>TOTaLi PRODUCTION_DESIGN_REFERENCE"]:::vision
+
+  VISION --> AUTONOM
+  VISION --> NATIVE
+  VISION --> PIPELINES
+
+  subgraph AUTONOM["AutonomAtIon — AI automation program"]
+    ING["InGENeer<br/>civil · survey · construction"]:::program
+    AIR["AIrchetect<br/>architectural 3D — scoped"]:::program
+  end
+
+  subgraph NATIVE["Deterministic native core"]
+    AURA["auracad<br/>OCCT C++ geometry + BIM"]:::kernel
+    FP["FloorPlanDesigner<br/>2D CAD kernel"]:::kernel
+  end
+
+  subgraph PIPELINES["Domain pipelines"]
+    TOT["TOTaLi<br/>LiDAR · survey → CAD"]:::pipeline
+    L4L["Liberals4Liberty<br/>generative CAD + ballistics"]:::pipeline
+  end
+
+  subgraph ORCH["InGENeer orchestration L1–L5"]
+    PY["orchestrator/<br/>Python phases + audit"]:::orch
+    SCH["schemas/<br/>cad_intent_envelope"]:::orch
+    CS["icad-addin/<br/>C# bridge spike"]:::orch
+  end
+
+  subgraph HOSTS["CAD execution hosts L6"]
+    ICAD["Carlson iCAD<br/>.NET / IntelliCAD"]:::host
+  end
+
+  subgraph ADVISORY["Advisory only — never authoritative"]
+    LLM["LLM intent routing"]:::advisory
+    JEPA["JEPA latent models"]:::advisory
+    LNP["LNP → command AST"]:::advisory
+  end
+
+  SW["SubWooder<br/>JEPA/mesh heritage"]:::heritage
+
+  ING --> ORCH
+  ING --> ICAD
+  AIR -.->|"auracad-native execution"| AURA
+
+  PY --> SCH
+  PY --> CS
+  CS --> ICAD
+
+  TOT -->|"auracad_contract.py"| AURA
+  L4L -->|"l4l_geom_bridge.h C FFI"| AURA
+  TOT -.->|"l4l_contract.py stub"| L4L
+  FP -.->|"kernel lift pending"| NATIVE
+
+  PY -.-> LLM
+  L4L -.-> JEPA
+  PY -.-> LNP
+
+  SW -.->|"JEPA heritage"| L4L
+
+  TOT -.->|"human certifies"| VISION

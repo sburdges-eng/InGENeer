@@ -24,13 +24,14 @@ bit-exactly. Triangles are canonicalized (vertex indices ascending within each t
 triangle list sorted lexicographically) so a set comparison is order-independent. Contour
 segments are canonicalized (endpoints ordered lexicographically, segment list sorted).
 
-usage: extract_from_totali.py <totali_repo> <out_fixture> [<out_cv_fixture>]
+usage: extract_from_totali.py <totali_repo> <out_fixture> [<out_cv_fixture>] [<out_overlay_fixture>]
 """
 
 import hashlib
 import pathlib
 import subprocess
 import sys
+from fractions import Fraction
 
 import numpy as np
 from scipy.spatial import Delaunay
@@ -39,9 +40,23 @@ from scipy.spatial import Delaunay
 CONTOUR_LEVELS = [105.0, 115.0, 130.0]
 VOLUME_PLANE_Z = 115.0
 
+# Phase 6 overlay oracle parameters (independent-two-TIN volume_between cross-check).
+# Surface B: deterministic regular grid strictly covering the corpus xy footprint
+# (x, y in ~[100.1, 199.9]), z sampled from an exact dyadic plane crossing the corpus
+# z mid-range (corpus z ~[100.0, 159.8]; plane range over the grid ~[124.6, 135.4])
+# so both cut and fill are nonzero. All constants dyadic => grid coordinates and plane
+# evaluations are EXACT in float64.
+GRID_ORIGIN = 96.0  # both axes
+GRID_SPACING = 8.0
+GRID_NODES = 15  # per axis => extent [96, 208]^2, 225 nodes
+PLANE_Z0 = 130.0  # value at (150, 150)
+PLANE_GX_NUM, PLANE_GX_DEN = 1, 16  # dz/dx = +1/16
+PLANE_GY_NUM, PLANE_GY_DEN = -1, 32  # dz/dy = -1/32
+
 TOTALI = pathlib.Path(sys.argv[1])
 OUT = pathlib.Path(sys.argv[2])
 OUT_CV = pathlib.Path(sys.argv[3]) if len(sys.argv) > 3 else None
+OUT_OVERLAY = pathlib.Path(sys.argv[4]) if len(sys.argv) > 4 else None
 CORPUS = TOTALI / "tests" / "fixtures" / "survey_corpus" / "synthetic_500pt.npy"
 
 sha = subprocess.run(["git", "-C", str(TOTALI), "rev-parse", "HEAD"],
@@ -201,3 +216,165 @@ print(f"wrote {OUT_CV}:")
 for lev, canon_segs, total_len in level_data:
     print(f"  level {lev}: {len(canon_segs)} segments, total length {total_len:.4f}")
 print(f"  plane {VOLUME_PLANE_Z}: cut {cut:.4f} fill {fill:.4f} (net {cut - fill:.4f})")
+
+if OUT_OVERLAY is None:
+    sys.exit(0)
+
+# ---- Phase 6: independent-two-TIN overlay volume oracle ---------------------------------
+#
+# Surface A: the pinned corpus Delaunay TIN (same simplices as totali-corpus-500pt-v1).
+# Surface B: the regular grid above with z from the exact plane
+#     z_B(x, y) = PLANE_Z0 + (x - 150) * (1/16) - (y - 150) * (1/32).
+# B shares NO xy support with A (asserted), so volume_between(A, B) must take the
+# general overlay path.
+#
+# Independent computation (does NOT mirror the C++ overlay's structure): because z_B is
+# globally affine and hull(B) = [96, 208]^2 strictly contains hull(A), the integration
+# region hull(A) ∩ hull(B) is exactly hull(A) and, with A in the design role and B in
+# the existing role of volume_between(A, B) (cut where existing is ABOVE design),
+#     cut  = Σ_{tA} ∫_{tA} max(z_B - z_A, 0) dA,
+#     fill = Σ_{tA} ∫_{tA} max(z_A - z_B, 0) dA,
+# i.e. NO polygon-pair overlay is needed at all — each A-triangle integrates one linear
+# difference field d = z_B - z_A. Evaluated EXACTLY in Q via fractions.Fraction
+# (float coordinates convert exactly), with two self-checks:
+#   1. exact identity cut - fill == Σ area_t * mean(d_t) (Fraction equality), and
+#   2. numpy midpoint-sampling sanity estimate at two resolutions (convergence margin
+#      documented below; the PINNED values come from the exact path, never the sampler).
+
+
+def plane_z_exact(x: Fraction, y: Fraction) -> Fraction:
+    return (Fraction(PLANE_Z0) + (x - 150) * Fraction(PLANE_GX_NUM, PLANE_GX_DEN)
+            + (y - 150) * Fraction(PLANE_GY_NUM, PLANE_GY_DEN))
+
+
+def positive_part_volume_exact(p: list, d: list) -> Fraction:
+    """Exact-rational positive-part prism: clip triangle p ((Fraction x, y) plan coords)
+    against the linear field d >= 0, fan-integrate. All arithmetic in Q."""
+    poly = []
+    zero = Fraction(0)
+    for i in range(3):
+        j = (i + 1) % 3
+        if d[i] >= zero:
+            poly.append((p[i][0], p[i][1], d[i]))
+        if (d[i] > zero > d[j]) or (d[i] < zero < d[j]):
+            s_ = d[i] / (d[i] - d[j])
+            poly.append((p[i][0] + s_ * (p[j][0] - p[i][0]),
+                         p[i][1] + s_ * (p[j][1] - p[i][1]), zero))
+    if len(poly) < 3:
+        return zero
+    v = zero
+    for k in range(1, len(poly) - 1):
+        ax, ay = poly[k][0] - poly[0][0], poly[k][1] - poly[0][1]
+        bx, by = poly[k + 1][0] - poly[0][0], poly[k + 1][1] - poly[0][1]
+        area = abs(ax * by - ay * bx) / 2
+        v += area * (poly[0][2] + poly[k][2] + poly[k + 1][2]) / 3
+    return v
+
+
+# Grid covers the corpus footprint strictly (hull(B) ⊃ hull(A)) and shares no xy support.
+grid_hi = GRID_ORIGIN + (GRID_NODES - 1) * GRID_SPACING
+assert GRID_ORIGIN < pts[:, 0].min() and grid_hi > pts[:, 0].max()
+assert GRID_ORIGIN < pts[:, 1].min() and grid_hi > pts[:, 1].max()
+grid_pts = []
+for iy in range(GRID_NODES):
+    for ix in range(GRID_NODES):
+        gx = GRID_ORIGIN + ix * GRID_SPACING  # exact in float64 (dyadic)
+        gy = GRID_ORIGIN + iy * GRID_SPACING
+        gz = float(plane_z_exact(Fraction(gx), Fraction(gy)))  # exact (dyadic plane)
+        grid_pts.append((gx, gy, gz))
+corpus_xy = {(float(p[0]), float(p[1])) for p in pts}
+assert not corpus_xy & {(gx, gy) for gx, gy, _ in grid_pts}, "grid shares support with A"
+
+ov_cut = ov_fill = ov_net = ov_area = Fraction(0)
+for s in simplices:
+    p = [(Fraction(float(pts[k, 0])), Fraction(float(pts[k, 1]))) for k in s]
+    # d = z_B - z_A: cut where the existing surface (B) is above the design (A).
+    d = [plane_z_exact(*p[i]) - Fraction(float(pts[k, 2])) for i, k in enumerate(s)]
+    ov_cut += positive_part_volume_exact(p, d)
+    ov_fill += positive_part_volume_exact(p, [-di for di in d])
+    ax, ay = p[1][0] - p[0][0], p[1][1] - p[0][1]
+    bx, by = p[2][0] - p[0][0], p[2][1] - p[0][1]
+    area_t = abs(ax * by - ay * bx) / 2
+    ov_area += area_t
+    ov_net += area_t * (d[0] + d[1] + d[2]) / 3
+# Self-check 1 (exact): clipped cut/fill reproduce the signed prism sum identically in Q.
+assert ov_cut - ov_fill == ov_net, "exact clip/signed identity violated"
+# Both signs must occur (the plane crosses the corpus surface).
+assert ov_cut > 0 and ov_fill > 0, "plane does not cross surface A"
+# Integration region == hull(A): exact triangle-area sum vs the v1 fixture's total_area.
+assert abs(float(ov_area) - total_area) < 1e-9, "overlap area != hull(A) area"
+
+
+def sampled_cut_fill(res: int) -> tuple:
+    """Numpy midpoint-sampling sanity estimate over hull(A)'s bbox (sanity ONLY; the
+    pinned values come from the exact Fraction path above)."""
+    xs = np.linspace(pts[:, 0].min(), pts[:, 0].max(), res, endpoint=False)
+    ys = np.linspace(pts[:, 1].min(), pts[:, 1].max(), res, endpoint=False)
+    dx = (pts[:, 0].max() - pts[:, 0].min()) / res
+    dy = (pts[:, 1].max() - pts[:, 1].min()) / res
+    gx, gy = np.meshgrid(xs + dx / 2, ys + dy / 2)
+    q = np.column_stack([gx.ravel(), gy.ravel()])
+    simp = tri.find_simplex(q)
+    inside = simp >= 0
+    q, simp = q[inside], simp[inside]
+    t_ = tri.transform[simp]
+    b2 = np.einsum("ijk,ik->ij", t_[:, :2, :], q - t_[:, 2, :])
+    bary = np.column_stack([b2, 1.0 - b2.sum(axis=1)])
+    za = (pts[tri.simplices[simp], 2] * bary).sum(axis=1)
+    dvals = (PLANE_Z0 + (q[:, 0] - 150.0) * (PLANE_GX_NUM / PLANE_GX_DEN)
+             + (q[:, 1] - 150.0) * (PLANE_GY_NUM / PLANE_GY_DEN)) - za
+    cell = dx * dy
+    return float(np.maximum(dvals, 0.0).sum() * cell), float(np.maximum(-dvals, 0.0).sum() * cell)
+
+
+# Self-check 2 (sanity): midpoint sampling agrees with the exact values within 1%
+# relative at BOTH res=800 and res=1600 (boundary-cell + facet-crossing error is
+# O(1/res); observed agreement is well inside this; never used as the pinned source).
+est_lo = sampled_cut_fill(800)
+est_hi = sampled_cut_fill(1600)
+for exact, lo, hi, name in ((ov_cut, est_lo[0], est_hi[0], "cut"),
+                            (ov_fill, est_lo[1], est_hi[1], "fill")):
+    ex = float(exact)
+    assert abs(lo - ex) < 0.01 * ex, f"sampling sanity (800) failed for {name}: {lo} vs {ex}"
+    assert abs(hi - ex) < 0.01 * ex, f"sampling sanity (1600) failed for {name}: {hi} vs {ex}"
+
+ov_cut_f, ov_fill_f, ov_area_f = float(ov_cut), float(ov_fill), float(ov_area)
+
+with OUT_OVERLAY.open("w") as f:
+    f.write("# oracle_fixture\n")
+    f.write("# id: totali-corpus-500pt-overlay-v1\n")
+    f.write("# source_repo: TOTaLi\n")
+    f.write(f"# source_git_sha: {sha}\n")
+    f.write("# extraction_script: tools/oracle/extract_from_totali.py\n")
+    f.write("# input: tests/fixtures/survey_corpus/synthetic_500pt.npy\n")
+    f.write(f"# input_sha256: {input_hash}\n")
+    f.write("# extracted_at: 2026-06-12\n")
+    f.write("# surface_a: corpus Delaunay TIN per totali-corpus-500pt-v1.txt (same input,\n")
+    f.write("#   same sha; build from that fixture's points)\n")
+    f.write("# surface_b: deterministic 15x15 regular grid, origin (96, 96), spacing 8 m\n")
+    f.write("#   (extent [96, 208]^2, strictly covering hull(A)); z from the exact dyadic\n")
+    f.write("#   plane z = 130 + (x - 150)/16 - (y - 150)/32. Affine z => any Delaunay\n")
+    f.write("#   diagonal choice on the cocircular grid squares yields the SAME surface,\n")
+    f.write("#   so the oracle is triangulation-independent. No shared xy support with A\n")
+    f.write("#   (asserted) => volume_between(A, B) takes the general overlay path.\n")
+    f.write("# volume_oracle: independent exact-rational computation (TOTaLi has no volume\n")
+    f.write("#   pipeline, per ADR-0023 fallback): z_B globally affine + hull(B) ⊃ hull(A)\n")
+    f.write("#   reduce the overlay to per-A-triangle positive-part integrals of the linear\n")
+    f.write("#   difference field, evaluated in Q via fractions.Fraction (no polygon-pair\n")
+    f.write("#   clipping; structurally independent of the C++ overlay). Self-checks:\n")
+    f.write("#   exact cut - fill == signed prism sum; numpy midpoint-sampling convergence\n")
+    f.write("#   (res 800/1600, 1% margin, sanity only). overlap_area == hull(A) area,\n")
+    f.write("#   exact triangle-area sum.\n")
+    f.write("# orientation: volume_between(A, B) with A = design, B = existing;\n")
+    f.write("#   cut = integral max(z_B - z_A, 0), fill = integral max(z_A - z_B, 0)\n")
+    f.write("# tolerances: area_m2=1e-2 volume_m3=1e-1\n")
+    f.write("# quantities: grid_points, overlay_volume (cut fill area)\n")
+    f.write(f"grid_points {len(grid_pts)}\n")
+    for gx, gy, gz in grid_pts:
+        f.write(f"{gx.hex()} {gy.hex()} {gz.hex()}\n")
+    f.write(f"overlay_volume {ov_cut_f.hex()} {ov_fill_f.hex()} {ov_area_f.hex()}\n")
+
+print(f"wrote {OUT_OVERLAY}: {len(grid_pts)} grid points")
+print(f"  overlay: cut {ov_cut_f:.4f} fill {ov_fill_f:.4f} (net {ov_cut_f - ov_fill_f:.4f}) "
+      f"area {ov_area_f:.4f}")
+print(f"  sampling sanity (res 1600): cut {est_hi[0]:.4f} fill {est_hi[1]:.4f}")

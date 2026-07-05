@@ -13,3 +13,5 @@
 add_subdirectory(audit_core)
 add_subdirectory(geometry_core)
 add_subdirectory(surface_core)
+add_subdirectory(coordinate_core)
+add_subdirectory(pointcloud_core)

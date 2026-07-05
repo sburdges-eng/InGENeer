@@ -542,6 +542,96 @@ void test_oracle_cross_check() {
         plane_z, r->cut, oracle_cut, r->fill, oracle_fill);
 }
 
+void test_overlay_oracle_cross_check() {
+    // Corpus-scale parity for the GENERAL (independent-two-TIN) overlay path of
+    // volume_between, against tests/fixtures/oracle/totali-corpus-500pt-overlay-v1.txt:
+    // surface A = the pinned 500-pt corpus TIN (points from the v1 fixture), surface B =
+    // the fixture's deterministic 15x15 grid sampling an exact dyadic plane. B shares no
+    // xy support with A, so the overlay path must run. The pinned cut/fill/area come
+    // from an independent exact-rational (fractions.Fraction) computation in
+    // tools/oracle/extract_from_totali.py; B's affine z makes the oracle independent of
+    // how the cocircular grid squares are triangulated. The pinned area equals the
+    // independently computed hull(A) ∩ hull(B) = hull(A) area, which certifies the
+    // general path's integration region (a shared-support shortcut over B's 225 points
+    // could not reproduce it).
+    const std::string cv_path(g_cv_path);
+    const std::size_t slash = cv_path.find_last_of("/\\");
+    CHECK(slash != std::string::npos);
+    const std::string overlay_path =
+        cv_path.substr(0, slash + 1) + "totali-corpus-500pt-overlay-v1.txt";
+
+    std::ifstream pin(g_points_path);
+    CHECK(static_cast<bool>(pin));
+    std::vector<std::array<double, 3>> points;
+    std::string line;
+    while (std::getline(pin, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream ss(line);
+        std::string tag;
+        ss >> tag;
+        if (tag == "points") {
+            std::size_t n = 0;
+            ss >> n;
+            points.resize(n);
+            for (auto& p : points) {
+                std::string hx, hy, hz;
+                pin >> hx >> hy >> hz;
+                p = {hexd(hx), hexd(hy), hexd(hz)};
+            }
+            break;
+        }
+    }
+    CHECK_EQ(points.size(), static_cast<std::size_t>(500));
+
+    std::vector<std::array<double, 3>> grid;
+    double oracle_cut = 0.0, oracle_fill = 0.0, oracle_area = 0.0;
+    bool found = false;
+    std::ifstream in(overlay_path);
+    CHECK(static_cast<bool>(in));
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        std::istringstream ss(line);
+        std::string tag;
+        ss >> tag;
+        if (tag == "grid_points") {
+            std::size_t n = 0;
+            ss >> n;
+            grid.resize(n);
+            for (auto& p : grid) {
+                std::string hx, hy, hz;
+                in >> hx >> hy >> hz;
+                p = {hexd(hx), hexd(hy), hexd(hz)};
+            }
+        } else if (tag == "overlay_volume") {
+            std::string hc, hf, ha;
+            ss >> hc >> hf >> ha;
+            oracle_cut = hexd(hc);
+            oracle_fill = hexd(hf);
+            oracle_area = hexd(ha);
+            found = true;
+        }
+    }
+    CHECK(found);
+    CHECK_EQ(grid.size(), static_cast<std::size_t>(225));
+
+    Tin a;
+    for (const auto& p : points) CHECK(a.insert(p[0], p[1], p[2]).has_value());
+    Tin b;
+    for (const auto& p : grid) CHECK(b.insert(p[0], p[1], p[2]).has_value());
+
+    auto r = volume_between(a, b);
+    CHECK(r.has_value());
+    CHECK(r->cut > 0.0);  // the plane crosses surface A: both signs must occur
+    CHECK(r->fill > 0.0);
+    CHECK(std::fabs(r->cut - oracle_cut) < 1e-1);    // volume_m3 tolerance
+    CHECK(std::fabs(r->fill - oracle_fill) < 1e-1);  // volume_m3 tolerance
+    CHECK(std::fabs(r->area - oracle_area) < 1e-2);  // area_m2 tolerance
+    std::printf(
+        "overlay volume oracle cross-check: cut %.4f (oracle %.4f) fill %.4f "
+        "(oracle %.4f) area %.4f (oracle %.4f)\n",
+        r->cut, oracle_cut, r->fill, oracle_fill, r->area, oracle_area);
+}
+
 void run() {
     test_tetra_prism();
     test_pyramid_prism_and_mixed_split();
@@ -558,6 +648,7 @@ void run() {
     test_degenerate_vertex_on_edge_no_double_count();
     test_prismoidal_vs_analytic();
     test_oracle_cross_check();
+    test_overlay_oracle_cross_check();
 }
 
 }  // namespace
