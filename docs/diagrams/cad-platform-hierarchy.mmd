@@ -10,7 +10,7 @@ flowchart TB
   classDef orch fill:#7c2d12,stroke:#fb923c,color:#e2e8f0
   classDef host fill:#831843,stroke:#f472b6,color:#e2e8f0
   classDef advisory fill:#374151,stroke:#9ca3af,color:#e2e8f0,stroke-dasharray:5 5
-  classDef sibling fill:#164e63,stroke:#22d3ee,color:#e2e8f0
+  classDef heritage fill:#4c1d95,stroke:#c4b5fd,color:#e2e8f0,stroke-dasharray:5 5
 
   VISION["Platform Vision<br/>TOTaLi PRODUCTION_DESIGN_REFERENCE"]:::vision
 
@@ -20,7 +20,7 @@ flowchart TB
 
   subgraph AUTONOM["AutonomAtIon — AI automation program"]
     ING["InGENeer<br/>civil · survey · construction"]:::program
-    AIR["AIrchetect<br/>mechanical 3D — planned"]:::program
+    AIR["AIrchetect<br/>architectural 3D — scoped"]:::program
   end
 
   subgraph NATIVE["Deterministic native core"]
@@ -33,7 +33,7 @@ flowchart TB
     L4L["Liberals4Liberty<br/>generative CAD + ballistics"]:::pipeline
   end
 
-  subgraph ORCH["InGENeer orchestration"]
+  subgraph ORCH["InGENeer orchestration L1–L5"]
     PY["orchestrator/<br/>Python phases + audit"]:::orch
     SCH["schemas/<br/>cad_intent_envelope"]:::orch
     CS["icad-addin/<br/>C# bridge spike"]:::orch
@@ -41,7 +41,6 @@ flowchart TB
 
   subgraph HOSTS["CAD execution hosts L6"]
     ICAD["Carlson iCAD<br/>.NET / IntelliCAD"]:::host
-    FCAD["FreeCAD worker<br/>Python — planned"]:::host
   end
 
   subgraph ADVISORY["Advisory only — never authoritative"]
@@ -50,20 +49,25 @@ flowchart TB
     LNP["LNP → command AST"]:::advisory
   end
 
+  SW["SubWooder<br/>JEPA/mesh heritage"]:::heritage
+
   ING --> ORCH
   ING --> ICAD
-  AIR --> FCAD
+  AIR -.->|"auracad-native execution"| AURA
 
   PY --> SCH
   PY --> CS
   CS --> ICAD
-  FCAD -.-> AURA
 
-  TOT --> AURA
-  L4L --> AURA
+  TOT -->|"auracad_contract.py"| AURA
+  L4L -->|"l4l_geom_bridge.h C FFI"| AURA
+  TOT -.->|"l4l_contract.py stub"| L4L
+  FP -.->|"kernel lift pending"| NATIVE
 
   PY -.-> LLM
   L4L -.-> JEPA
   PY -.-> LNP
+
+  SW -.->|"JEPA heritage"| L4L
 
   TOT -.->|"human certifies"| VISION

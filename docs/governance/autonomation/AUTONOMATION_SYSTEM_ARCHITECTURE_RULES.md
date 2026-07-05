@@ -4,12 +4,12 @@
 
 **Layered checklists (paths, phases, versioning):** [LAYERED_PRACTICE_PLAYBOOK.md](LAYERED_PRACTICE_PLAYBOOK.md).
 
-**Scope:** `AutonomAtIon` is the parent program. **`InGENeer`** = civil CAD, survey, construction. **`AIrchetect`** = 3D mechanical CAD. This document governs how code is written across those products.
+**Scope:** `AutonomAtIon` is the parent program. **`InGENeer`** = civil CAD, survey, construction. **`AIrchetect`** = architectural 3D CAD. This document governs how code is written across those products.
 
 **Current execution targets (update as you add hosts):**
 
 - **Primary (InGENeer):** Carlson **iCAD** (IntelliCAD engine). Native automation is typically **.NET / COM / LISP / IRX** per ITC/Carlson—treat the CAD host as single-threaded for UI/document work unless a specific API documents otherwise.
-- **Planned (AIrchetect):** **FreeCAD** (free). Core automation is **Python** (FreeCAD’s API), not C#. See **Domain isolation** below for how that still maps to “orchestrator vs execution.”
+- **Scoped (AIrchetect):** **auracad** (OCCT C++ kernel). Core automation is **Python** (auracad pybind11 bindings + CLI), not C#. Same "orchestrator vs execution" split as InGENeer; execution is deterministic only. See [ADR-0031](../../adr/ADR-0031-airchetect-auracad-native.md) and [AIRCHETECT_SCOPE.md](../../../../docs/AIRCHETECT_SCOPE.md).
 
 **Preferred desktop stack** for manual work and file prep (GIS, 2D CAD, 3D, math): see `.cursor/rules/preferred-desktop-tooling.mdc`.
 
@@ -141,7 +141,7 @@ Rollbacks are cheaper than untangling hallucinations.
 | Name           | Meaning |
 |----------------|---------|
 | **InGENeer**   | Civil CAD, surveyor, construction-oriented tooling and context. |
-| **AIrchetect** | 3D mechanical CAD–oriented tooling and context. |
+| **AIrchetect** | Architectural 3D CAD–oriented tooling and context; auracad-native execution (ADR-0031). |
 | **AutonomAtIon** | This folder and parent program root for orchestration + execution boundaries above. |
 
 ---
@@ -149,4 +149,4 @@ Rollbacks are cheaper than untangling hallucinations.
 ## Document control
 
 - **Owner:** project maintainer.
-- **When to update:** When you add a CAD host (e.g. FreeCAD worker paths), change transport (MCP vs gRPC), or adopt a new official doc source—keep **SOP 3** doc index in sync.
+- **When to update:** When you add a CAD host, change transport (MCP vs gRPC), or adopt a new official doc source—keep **SOP 3** doc index in sync.
