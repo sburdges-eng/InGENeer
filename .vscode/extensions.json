@@ -1,7 +1,11 @@
 {
   "recommendations": [
-    "EditorConfig.EditorConfig",
+    "editorconfig.editorconfig",
     "ms-python.python",
-    "ms-dotnettools.csdevkit"
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "ms-dotnettools.csdevkit",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "ms-vscode.cmake-tools"
   ]
 }
